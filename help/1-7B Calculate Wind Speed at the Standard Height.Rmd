@@ -1,0 +1,91 @@
+---
+title: "Calculate Wind Speed at the Standard Height"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate wind speed at the standard height (2 meters) through the function `ws()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Wind Speed at the Standard Height
+# ********************************
+#
+# Calculate wind speed at 2 meters from wind speed measured at a certain height.
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'z'         height above ground level (m)
+# 'uz'        horizontal wind speed (m s−1) at height z (m)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+z <- 9
+uz <- 1.60
+
+# Step 3: run the model
+u2 <- ws(z, uz)
+
+# Step 4: present the output
+cat(
+  paste("Measured wind speed at", z, "m:", uz, "(m s-1)\n"),
+  paste("Wind speed at 2 meters:", round(u2, 2), "(m s-1)\n")
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `z`: Height above ground level (m). In this example, the wind speed is measured at 9m, so we assign 9 to `z`.
+-   `uz`: Wind speed measured at a certain height (m s^-1^). The measured value of wind speed at 9m is 1.60.
+
+```{r comment=""}
+z <- 9
+uz <- 1.60
+```
+
+**Step3:** Run the model. As discussed in Section 1-7A, the wind profile of homogeneous vegetation under neutral atmospheric conditions is typically expressed as:
+
+$$U(z)=\frac{u^*}{\kappa}·\ln(\frac{z-d}{z_0}),\quad(1)$$
+
+where $U(z)$ is the horizontal wind speed (m s^−1^) at height $z$ (m); $u^∗$ is the friction velocity (m s^−1^ ), $\kappa$ is the von Karmon constant with an average value of 0.35 -- 0.43 (a value of 0.40 is often used in the literature), $d$ (m) is a zero plain displacement, and $z_0$ is the roughness length (m) at which is $U$ is near zero. Thus, the wind speed at 2 meters can be calculated as:
+
+$$
+U(2)=U(z)\frac{\ln ((2-d)/z_0)}{\ln ((z-d)/z_0)},\quad(2)
+$$
+
+```{r comment=""}
+u2 <- ws(z, uz)
+
+cat(
+  paste("Measured wind speed at", z, "m:", uz, "(m s-1)\n"),
+  paste("Wind speed at 2 meters:", round(u2, 2), "(m s-1)\n")
+)
+```
+
+The arguments and their meaning of the function `ws()` that might change the calculated result in this example are shown in the table below:
+
+| Argument | Data Type | Meaning                                                                                                                      | Symbol |
+|----------------|----------------|------------------------|----------------|
+| `z`      | vector    | height above ground level (m)                                                                                                | $z$    |
+| `uz`     | vector    | wind speed measured at a certain height (m s^-1^)                                                                            | $U(z)$ |
+| `d`      | vector    | zero plain displacement (m). Default 0.08                                                                                    | $d$    |
+| `z0`     | vector    | roughness length (m) at which wind speed is near zero. Default 0.01                                                          | $z_0$  |
+| `mode`   | character | options of analysis. Must be set as `"wind2"` to generate wind speed profile. This is the defaulted value of argument `mode` | /      |

@@ -1,0 +1,113 @@
+---
+title: "Calculate Incoming Radiation"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate incoming radiation.
+
+## Code Example
+
+```{r eval=FALSE}
+# Calculate Incoming Radiation
+# ********************************
+#
+# Gives a rough estimate of daily incoming radiation (MJ m-2 d-1) (Allen et al.,
+# 1998).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'year'        experimental year
+# 'month'       experimental month
+# 'day'         experimental day
+# 'lng'         longitude of the study site (decimal)
+# 'lat'         latitude of the study site (decimal)
+# 'ah'          actual duration of sunshine (hour)
+# 
+# Calculated variables in the program
+#
+# 'doy'         day of the year
+# 'dl'          day length (h)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+year  <- 2016
+month <- 9
+day   <- 22
+lng   <- 85.446758
+lat   <- 42.476708
+ah    <- 10
+
+# Step 3: run the model
+doy   <- DOY(year, month, day)                    # calculate day of the year
+rs(lat, doy, ah, as = 0.25, bs = 0.5)     # calculate incoming solar radiation
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `day`, `month`, and `year`: Experimental day. The provided example calculates the incoming radiation for 22 September 2016 and, therefore, we assigns 22 to the variable `day`, 9 to `month`, 2016 to `year`.
+
+-   `lng`: Longitude of the study site (in decimal). The provided example focuses on incoming radiationat 85.446758^o^E.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on incoming radiation at 42.476708^o^N.
+
+-   `ah`: Actual duration of sunshine (hour). The provided example uses 10h.
+
+```{r comment=""}
+year  <- 2016
+month <- 9
+day   <- 22
+lat   <- 42.476708
+ah    <- 10
+```
+
+**Step3:** Run the model. The first step is to calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doy <- DOY(year, month, day)
+cat(paste0(day,"/",month,"/",year," is the ",doy,"th day of ",year,".\n"))
+```
+
+The incoming solar radiation ($R_s$, MJ m^-2^ d^-1^) is modeled as (Allen et al., 1998):
+
+$$
+R_s=(a_s+b_s\frac{n}{N})R_a,\quad(1)
+$$
+
+where $n$ is actual duration of sunshine (h), $N$ is daylight hours or the difference between sunrise and sunset time (See Section 1-4A, B for details), $R_a$ is extraterrestrial radiation (MJ m^-2^ d^-1^, see Section 1-3A for details). $a_s$ and $b_s$ are empirical parameters with the defaulted and recommended value of 0.25 and 0.5, respectively. Note that this method only gives a rough estimate of $R_s$.
+
+```{r comment=""}
+Rs <- rs(lat, doy, ah, as = 0.25, bs = 0.5)
+
+cat(paste0(
+  "Date = ", day, "/", month, "/", year, "\n",
+  "Latitude = ", lat, "\n",
+  "Incoming Radiation = ", round(Rs, 3), " (MJ m-2 d-1)\n"
+))
+```
+
+## Reference
+
+Allen, R. G., Pereira, L. S., Raes, D. and Smith, M. (1998). Crop Evapotranspiration -- Guidelines for Computing Crop Water Requirements, FAO Irrigation and Drainge Paper 56, FAO, 1998, ISBN 92-5-104219-5.

@@ -1,0 +1,165 @@
+---
+title: "Michaelis-Menten Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate ecosystem production based on Michaelis-Menten (MM) model.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Ecosystem Production based on Michaelis-Menten (MM) Model
+# *****************************************************************
+#
+# Calculate ecosystem production based on Michaelis-Menten (MM) Model (Michaelis
+# and Menten, 1913)
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'PAR'        	  photosynthetically active radiation (μmol m-2 s-1)
+# 'alpha'         photochemical efficiency of photosynthesis at low light
+# 'Pm'            maximum photosynthetic capacity (μmol m-2 s-1)
+# 'Rd'            respiration rate (μmol m-2 s-1)
+# 'beta'          additional shape factor
+#
+# Calculated variables in the program
+# 'Pn_MM'         photosynthesis rate (μmol m-2 s-1) given by MM model
+# 'Pn_landsand'   photosynthesis rate (μmol m-2 s-1) given by Landsand model
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+PAR   <- seq(0, 1000, 10)
+alpha <- 0.05
+Pm    <- 10
+Rd    <- 0
+beta  <- -2       # must be less than 1
+
+# Step 3: run the model
+Pn_MM <- photo.michment(PAR, alpha = alpha, Pm = Pm, Rd = Rd)
+Pn_landsand <- photo.michment(PAR, method = "landsand", 
+                              alpha = alpha, Pm = Pm, Rd = Rd, beta = -2)
+
+# Step 4: present and visualize the result
+print(data.frame(PAR = PAR, Pn_MM = Pn_MM, Pn_landsand = Pn_landsand), digits = 3)
+
+plot(
+  PAR, Pn_MM, col=2, ylim=range(c(Pn_MM, Pn_landsand)), type="l",
+  xlab = "Photosynthetically active radiation",
+  ylab = "Photosynthesis rate",
+  main = "Photosynthesis Rate Estimated by MM and Landsand Model"
+)                       # plot photosynthesis rate versus PAR (MM model)
+lines(PAR, Pn_landsand, col=3, type="l")
+                        # plot photosynthesis rate versus PAR (Landsand model)
+legend("right", pch=c(15, 15), col=c(2, 3), bty="n",
+       legend=c("MM Model", "Landsand Model")) # add legends
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `PAR`: Photosynthetically active radiation ($PAR$, µmol m^−2^ s^−1^). The provided example calculates photosynthesis rate ($P_n$, µmol m^−2^ s^−1^) when $PAR$ changes from 0 to 1000 µmol m^−2^ s^−1^.
+
+-   `alpha`: Photochemical efficiency of photosynthesis at low light. A model parameter used in both equation (1) and (2). The provided example uses 0.05.
+
+-   `Pm`: Maximum photosynthetic capacity (µmol m^−2^ s^−1^). A model parameter used in both equation (1) and (2). The provided example uses 10 µmol m^−2^ s^−1^.
+
+-   `Rd`: Respiration rate (µmol m^−2^ s^−1^). A model parameter used in both equation (1) and (2). The provided example assumes no respiration.
+
+-   `beta`: Additional shape factor. A model parameter only used in equation (2). It should be less than 1.
+
+```{r comment=""}
+PAR   <- seq(0, 1000, 10)
+alpha <- 0.05
+Pm    <- 10
+Rd    <- 0
+beta  <- -2
+```
+
+**Step3:** Run the model. The relationship between $P_n$ and $PAR$, also commonly known as light response curve, is expressed as a rectangular hyperbolic model:
+
+$$
+P_n=\frac{\alpha·PAR·P_m}{\alpha·PAR+P_m}-R_d,\quad (1)
+$$
+
+where $\alpha$ is the photochemical efficiency of photosynthesis at low light, $P_m$ (µmol m^−2^ s^−1^) is the maximum photosynthetic capacity of a leaf or an ecosystem, $R_d$ is the respiration rate (µmol m^−2^ s^−1^).
+
+```{r comment=""}
+Pn_MM <- photo.michment(PAR, alpha = alpha, Pm = Pm, Rd = Rd)
+
+print(head(data.frame(PAR = PAR, Pn_MM = Pn_MM)), digits = 3)
+```
+
+Landsberg and Sands (2011) introduced an additional shape factor ($\beta$) into a non-rectangular hyperbolic model:
+
+$$
+P_n=P_m·\frac{2·\alpha·PAR/P_m}{1+\alpha·\frac{PAR}{P_m}+\sqrt{(1+\alpha·\frac{PAR}{P_m})^2-4·\alpha·\beta·PAR/P_m}},\quad (2)
+$$This model is virtually the same as equation (1) when $β = 0$. The value of $β$ should be less than 1 for simulations. The following example shows how to calculate *P~n~* using eq. 2:
+
+```{r comment=""}
+Pn_landsand <- photo.michment(PAR, method = "landsand", 
+                              alpha = alpha, Pm = Pm, Rd = Rd, beta = beta)
+
+print(head(data.frame(PAR = PAR, Pn_landsand = Pn_landsand)), digits = 3)
+```
+
+An alternative expression of the non-rectangular hyperbolic model is:
+
+$$
+P_n=\frac{1}{2·\beta}[\alpha·PAR+P_m-\sqrt{(\alpha·PAR+P_m)^2-4·\alpha·PAR·P_m·\beta}],\quad (3)
+$$Equation (3) gives almost the same estimates as equation (2).
+
+```{r comment=""}
+Pn_peat <- photo.michment(PAR, method = "peat", 
+                          alpha = alpha, Pm = Pm, Rd = Rd, beta = beta)
+
+print(head(data.frame(PAR = PAR, 
+                      Pn_landsand = Pn_landsand, 
+                      Pn_peat = Pn_peat)), digits = 3)
+```
+
+**Step4:** Present and visualize results. Combine the results by columns and view them through the function `data.frame`:
+
+```{r comment=""}
+print(
+  head(data.frame(PAR = PAR, Pn_MM = Pn_MM, Pn_landsand = Pn_landsand)),
+  digits = 3
+)
+```
+
+Create a line plot of calculated variables against $PAR$ through the function `plot()`:
+
+```{r comment=""}
+plot(
+  PAR, Pn_MM, col=2, ylim=range(c(Pn_MM, Pn_landsand)), type="l",
+  xlab = "Photosynthetically active radiation",
+  ylab = "Photosynthesis rate",
+  main = "Photosynthesis Rate Estimated by MM and Landsand Model"
+)                       # plot photosynthesis rate versus PAR (MM model)
+lines(PAR, Pn_landsand, col=3, type="l")
+                        # plot photosynthesis rate versus PAR (Landsand model)
+legend("right", pch=c(15, 15), col=c(2, 3), bty="n",
+       legend=c("MM Model", "Landsand Model")) # add legends
+```
+
+## References
+
+Landsberg, J. J., and Sands, P. (2011). Physiological Ecology of Forest Production: Principles, Processes and Models (Vol. 4). London: Elsevier/Academic Press. 352pp.
+
+Michaelis, L., and Menten, M. L. (1913). Die Kinetik der Invertinwirkung. Biochem Z, 49: 333--369.

@@ -1,0 +1,137 @@
+---
+title: "Sunrise and Sunset Time"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate sunrise and sunset time through the function `sunRS()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Sunrise and Sunset Time
+# ********************************
+#
+# Calculate the sunrise and sunset time for a single day. For more details about 
+# the algorithm used, see Campbell and Norman (2012).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'year'        experimental year
+# ’month'       experimental month
+# 'day'         experimental day
+# 'lng'         longitute of the study site (decimal)
+# 'lat'         latitude of the study site (decimal)
+# 
+# Calculated variables in the program
+# 'doy'         day of the year
+# 'time_sr'     sunrise time (hour)
+# 'time_ss'     sunset time (hour)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+year  <- 2016
+month <- 9
+day   <- 22
+lng   <- -85.446758
+lat   <- 42.476708
+
+# Step 3: run the model
+doy <- DOY(year, month, day)          # calculate day of the year (DOY)
+
+time_sr <- sunRS(doy, lng, lat)[[1]]  # calculate sunrise time
+time_ss <- sunRS(doy, lng, lat)[[2]]  # calculate sunset time
+
+# Step 4: present the output
+cat(
+  paste0("Longitude = ",lng, ", Latitude = ",lat,".\n"),
+  paste0("The sunrise time on ",day,"/",month,"/",year," is ",
+         floor(time_sr),":",round((time_sr-floor(time_sr))*60),".\n"),
+  paste0("The sunset time on ",day,"/",month,"/",year," is ",
+         floor(time_ss),":",round((time_ss-floor(time_ss))*60),".\n"),
+  "Day length =",round(time_ss-time_sr,2),"(hour).\n"
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `day`, `month`, and `year`: Experimental day. The provided example calculates sunrise and sunset time for 22 September 2016 at 42.476708^o^N and, therefore, we assigns 22 to the variable `day`, 9 to `month`, 2016 to `year`.
+
+-   `lng`: Longitude of the study site (in decimal). The provided example focuses on the sunrise and sunset time at 85.446758^o^W. Thus we assign --85.446758 to `lng`.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on the sunrise and sunset time at 42.476708^o^N. Thus we assign 42.476708 to `lat`.
+
+```{r comment=""}
+year  <- 2016
+month <- 9
+day   <- 22
+lng   <- -85.446758
+lat   <- 42.476708
+```
+
+**Step3:** Run the model. The first step is to calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doy <- DOY(year, month, day)           # calculate day of the year (DOY)
+cat(paste0(day,"/",month,"/",year," is the ",doy,"th day of ",year,".\n"))
+```
+
+Sunrise time (Time~sr~, hour) is calculated as:
+
+$$
+\text{Time}_{sr}=12-\frac{1}{15}\cos^{-1}\left(\frac{-\sin\Phi\sin\delta}{\cos\Phi\cos\delta} \right)-\frac{t}{60},\quad(2)
+$$
+
+where $\Phi$ is latitude (decimal), $\delta$ is solar declination (decimal), $t$ is local time (hour) which can be estimated from longitude. Sunset time (Time~ss~, hour) can be estimated by:
+
+$$
+\text{Time}_{ss}=12+\frac1{15}\cos^{-1}\left(\frac{-\sin\Phi\sin\delta}{\cos\Phi\cos\delta}\right)-\frac t{60},\quad(3)
+$$
+
+Solar declination ($\delta$) is calculated as:
+
+$$
+\delta = -23.25·\cos\left[\frac{360}{365}(\text{DOY}+10) \right],\quad(4)
+$$
+
+Calculation of Time~sr~ and Time~ss~ via equation (2--4) can be done through the function `sunRS`:
+
+```{r comment=""}
+time_sr <- sunRS(doy, lng, lat)[[1]]   # calculate sunrise time
+time_ss <- sunRS(doy, lng, lat)[[2]]   # calculate sunset time
+
+cat(
+  paste0("Longitude = ",lng, ", Latitude = ",lat,".\n"),
+  paste0("The sunrise time on ",day,"/",month,"/",year," is ",
+         floor(time_sr),":",round((time_sr-floor(time_sr))*60),".\n"),
+  paste0("The sunset time on ",day,"/",month,"/",year," is ",
+         floor(time_ss),":",round((time_ss-floor(time_ss))*60),".\n"),
+  "Day length =",round(time_ss-time_sr,2),"(hour).\n"
+)
+```
+
+## Reference
+
+Campbell, G. S., and Norman, J. (2012). An Introduction to Environmental Biophysics. Springer Science & Business Media. 286pp.

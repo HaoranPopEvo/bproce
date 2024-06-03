@@ -1,0 +1,164 @@
+---
+title: "Fit Michaelis-Menten Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to fit Michaelis-Menten (MM) model through the function `photo.michment.fit()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Fit Michaelis-Menten Model
+# ********************************
+#
+# Fit Michaelis-Menten model from measured photosynthesis rate and
+# photosynthetically active radiation
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which contains two columns (with table titles)
+#                * column 1: photosynthetically active radiation (μmol m-2 s-1)
+#                * column 2: photosynthesis rate (μmol m-2 s-1)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/2-1B Simulated Photosynthesis Rate for MM Model.csv"
+
+# Step 3: read data
+dat   <- read.csv(path)   # read the CSV file
+                          #  * column 1 ($PAR): photosynthetically active radiation
+                          #  * column 2 ($Pn): measured photosynthesis rate
+
+# Step 4: fit the model
+md <- photo.michment.fit(dat$PAR, dat$Pn)
+
+fitted_alpha  <- md$coef[["alpha"]]   # extract fitted model paramters
+fitted_Pm     <- md$coef[["Pm"]]
+fitted_Rd     <- md$coef[["Rd"]] 
+
+cat(
+  paste("***** Fit Michaelis-Menten Model *****\n"),
+  paste("alpha = ", fitted_alpha, "\n"),
+  paste("Pm = ", fitted_Pm, "(μmol m-2 s-1)\n"),
+  paste("Rd = ", fitted_Rd, "(μmol m-2 s-1)\n"),
+  paste("Multiple R-squared:", md$r.squared,"\n"),
+  paste("Adjusted R-squared:", md$adj.r.squared,"\n")
+)
+
+
+# Step 5: model prediction
+predicted_Pm <- photo.michment(dat$PAR, alpha = fitted_alpha, Pm = fitted_Pm,
+                               Rd = fitted_Rd)
+                      # calculate photosynthesis rate based on the fitted model
+
+plot(
+  dat$PAR, dat$Pn,
+  xlab = "Photosynthetically active radiation",
+  ylab = "Photosynthesis rate",
+  main = "Fit Michaelis-Menten Model"
+)                            # plot measured photosynthesis rate versus PAR
+lines(dat$PAR, predicted_Pm)  # plot fitted light response curve
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. There should be two columns in this file:
+
+    -   Column 1: photosynthetically active radiation (µmol m^−2^ s^−1^).
+
+    -   Column 2: measured photosynthesis rate (µmol m^−2^ s^−1^).
+
+```{r comment=""}
+path  <- "./data/2-1B Simulated Photosynthesis Rate for MM Model.csv"
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat <- read.csv(path)
+print(head(dat), digits = 3)    #print first parts of the data
+```
+
+**Step4:** Fit the model. As discussed in Section 2-1A, the relationship between photosynthesis rate $P_n$ (µmol m^−2^ s^−1^) and photosynthetically active radiation ($PAR$, μmol m^-2^ s^-1^) is expressed as:
+
+$$
+P_n=\frac{\alpha·PAR·P_m}{\alpha·PAR+P_m}-R_d,\quad (1)
+$$
+
+where $α$ is the photochemical efficiency of photosynthesis at low light, $P_m$ (µmol m^−2^ s^−1^) is the maximum photosynthetic capacity of a leaf or an ecosystem, $R_d$ is the respiration rate (µmol m^−2^ s^−1^). To fit this model, use the function `photo.michment.fit()`.
+
+```{r comment=""}
+md <- photo.michment.fit(dat$PAR, dat$Pn)
+```
+
+The arguments and their meaning of the function `photo.michment.fit()` are shown in the table below:
+
+| Argument | Data Type | Meaning                                                                                                                                                                                                                                                                                                                                             | Symbol |
+|-----------------|-----------------|-----------------------|-----------------|
+| `PAR`    | vector    | photosynthetically active radiation (µmol m^−2^ s^−1^)                                                                                                                                                                                                                                                                                              | $PAR$  |
+| `Pn`     | vector    | measured photosynthesis rate (µmol m^−2^ s^−1^)                                                                                                                                                                                                                                                                                                     | $P_n$  |
+| `Rd`     | vector    | potential values of parameter $R_d$ that will be tried to fit MM model. By default, this argument is set as `seq(0, max(Pn), 0.01))`, which means that a sequence of $R_d$ that starts from 0 to the maximal $P_n$ will be used to fit MM model. The increment of the sequence is 0.01. Ultimately, the function will return the best fitted model. | $R_d$  |
+
+Note that the function `photo.michment.fit()` reports a warning message to recommend us to increase the upper limit of $R_d$ tried to fit MM model, because the in the best fitted model $R_d$ equals to the maximal $P_n$. This can be solved by setting argument `Rd` to a sequence with a larger upper limit. However, we should also note that an extremely high $R_d$ is impossible in the reality even though it will gives a better fitted model. Therefore, it looks good to ignore this warning message and proceed.
+
+Now we can take a look at the fitted values of model parameters.
+
+```{r comment=""}
+fitted_alpha  <- md$coef[["alpha"]]   # extract fitted model paramters
+fitted_Pm     <- md$coef[["Pm"]]
+fitted_Rd     <- md$coef[["Rd"]] 
+
+cat(
+  paste("***** Fit Michaelis-Menten Model *****\n"),
+  paste("alpha = ", fitted_alpha, "\n"),
+  paste("Pm = ", fitted_Pm, "(μmol m-2 s-1)\n"),
+  paste("Rd = ", fitted_Rd, "(μmol m-2 s-1)\n"),
+  paste("Multiple R-squared:", md$r.squared,"\n"),
+  paste("Adjusted R-squared:", md$adj.r.squared,"\n")
+)
+```
+
+**Step 5:** Model prediction. Predict $P_n$ using the fitted model:
+
+```{r comment=""}
+predicted_Pm <- photo.michment(dat$PAR, alpha = fitted_alpha, Pm = fitted_Pm,
+                               Rd = fitted_Rd)
+```
+
+Create a plot of $P_n$ against $PAR$ to compare observed and predicted values:
+
+```{r comment=""}
+plot(
+  dat$PAR, dat$Pn,
+  xlab = "Photosynthetically active radiation",
+  ylab = "Photosynthesis rate",
+  main = "Fit Michaelis-Menten Model"
+)                            # plot measured photosynthesis rate versus PAR
+lines(dat$PAR, predicted_Pm)  # plot fitted light response curve
+```
+
+The dots appear on the plot represent the observed values, whilst the solid curve represents the fitted light response curve. It can be seen that the model gives an accurate and reliable prediction of $P_n$.
+
+## References
+
+Landsberg, J. J., and Sands, P. (2011). Physiological Ecology of Forest Production: Principles, Processes and Models (Vol. 4). London: Elsevier/Academic Press. 352pp.
+
+Michaelis, L., and Menten, M. L. (1913). Die Kinetik der Invertinwirkung. Biochem Z, 49: 333--369.

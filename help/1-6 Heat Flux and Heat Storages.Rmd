@@ -1,0 +1,153 @@
+---
+title: "Heat Flux and Heat Storages"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate heat flux density through the function `heatflux()` and heat storage through the function `heatstore()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Heat Flux Density and Heat Storeage
+# ********************************
+#
+# Calculate heat flux density and heat storage based on their definitions.
+#
+# ********************************
+# List of variables and units for this example
+#
+# * Variables for calculating heat flux density
+#
+# 'dt_sd'       soil temperature change when heat passes through a thin layer
+#                 (Celsius, Fahrenheit, or Kelvin)
+# ’d'           thickness of the soil layer (m)
+#
+# * Variables for calculating heat storage
+#
+# 'dt_st'       soil temperature change during a time interval
+#                 (Celsius, Fahrenheit, or Kelvin)
+# 'dsecond'     time interval (s)
+# 'theta'       soil water content (%)
+#
+# Calculated variables in the program
+# 'G'           heat flux density (W m−2)
+# 'dS'          heat storage (W m−3)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+dt_sd <- 2      # soil temperature change (for calculating heat flux density)
+d <- 1          # thickness of the soil layer (for calculating heat flux density)
+
+dt_st <- 2      # soil temperature change (for calculating heat storage)
+dsecond <- 3600 # time inteval (for calculating heat storage)
+theta <- 50     # soil water content (for calculating heat storage)
+
+# Step 3: run the model
+G <- heatflux(dt_sd, d)
+dS <- heatstore(dt_st, dsecond, theta)
+
+# Step 4: present the output
+cat(
+  paste("***** Calculating heat flux density *****\n"),
+  paste("Soil temperature change ΔT =", dt_sd, "(Celsius)\n"),
+  paste("Thickness of the soil laryer d =", d, "(m)\n"),
+  paste("Heat flux density G = 2.5 * ΔT / d =", G, "(W m-2)\n"),
+  paste("\n"),
+  paste("***** Calculating heat storage *****\n"),
+  paste("Soil temperature change ΔT =", dt_st, "(Celsius)\n"),
+  paste("Time inteval = Δt", dsecond, "(s)\n"),
+  paste("Soil water content = θ", theta, "(%)\n"),
+  paste("Heat storage ΔS = (1000 * 890 + theta / 100 * 1000 * 4190) * (ΔT / Δt) =", round(dS, 2), "(W m-3)\n")
+)
+
+```
+
+## Explanations
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters. For calculating heat flux density, the following parameters are required:
+
+-   `dt_sd`: The temperature difference between the surface and bottom soil layer (Celsius, Fahrenheit, or Kelvin). The observed value is 2^o^C in this example.
+
+-   `d`: Thickness of the soil layer (m). In this example it is 2m.
+
+To calculate the amount of heat energy stored in the soil, we should specify:
+
+-   `dt_st`: The change on temperature over a period of time (Celsius, Fahrenheit, or Kelvin). The observed value is 2^o^C in this example.
+
+-   `dsecond`: Time interval (s). The observation lasts for 1h (=3600s) in this example.
+
+-   `theta`: Soil water content (%). The provided example uses 50%.
+
+```{r comment=""}
+dt_sd <- 2      # soil temperature change (for calculating heat flux density)
+d <- 1          # thickness of the soil layer (for calculating heat flux density)
+
+dt_st <- 2      # soil temperature change (for calculating heat storage)
+dsecond <- 3600 # time inteval (for calculating heat storage)
+theta <- 50     # soil water content (for calculating heat storage)
+```
+
+**Step3:** Run the model. Heat flux density ($G$, W m^−2^ ) is calculated as:
+
+$$G=\kappa·\frac{\Delta T}{d},\quad(1)$$
+
+where $\kappa$ (W m^−1^ K^−1^) is the thermal conductivity of the soil and $d$ (m) is the thickness of the soil layer. The $kappa$ value is ∼ 2.5 W m^−1^ K^−1^ for soil minerals, ∼1.92 W m^−1^ K^−1^ for organic matter, and 4.18 W m^−1^ K^−1^ for water.
+
+```{r}
+G <- heatflux(dt_sd, d, kappa = 2.5)
+
+cat(
+  paste("***** Calculating heat flux density *****\n"),
+  paste("Soil temperature change ΔT =", dt_sd, "(Celsius)\n"),
+  paste("Thickness of the soil laryer d =", d, "(m)\n"),
+  paste("Heat flux density G = 2.5 * ΔT / d =", G, "(W m-2)\n")
+)
+```
+
+The arguments and their meaning of the function `heatflux()` is shown in the table below:
+
+| Argument | Data Type | Meaning                                                                                        | Symbol     |
+|---------------|---------------|---------------------------|---------------|
+| `detT`   | vector    | soil temperature change when heat passes through a thin layer (Celsius, Fahrenheit, or Kelvin) | $\Delta T$ |
+| `d`      | vector    | thickness of the soil layer (m)                                                                | $d$        |
+| `kappa`  | scalar    | the thermal conductivity constant                                                              | $\kappa$   |
+
+The heat storage ($\Delta S$, W m^−3^) over a period of time ($\Delta t$, s) can be calculated as:
+
+$$\Delta S=(ρ_b·c_d+\theta·ρ_w·c_w)·\frac{\Delta T}{\Delta t}·d$$ where $\rho_b$ (kg m^-1^) is the soil bulk density (default 2.7 kg m^-3^), $\rho_w$ is the density of water, $c_d$ (890 J kg^−1^ K^−1^) and $c_w$ (4190 J kg^−1^ K^−1^) are the specific heat capacities of the dry mineral soil and the soil water, respectively. $\theta$ is the volumetric soil water content (%), and $∆T/∆t$ (K s^−1^) is the mean soil temperature change at the time interval.
+
+```{r}
+dS <- heatstore(dt_st, dsecond, theta)
+
+cat(
+  paste("***** Calculating heat storage *****\n"),
+  paste("Soil temperature change ΔT =", dt_st, "(Celsius)\n"),
+  paste("Time inteval = Δt", dsecond, "(s)\n"),
+  paste("Soil water content = θ", theta, "(%)\n"),
+  paste("Heat storage ΔS = (1000 * 890 + theta / 100 * 1000 * 4190) * (ΔT / Δt) =", round(dS, 2), "(W m-3)\n")
+)
+```
+
+The arguments and their meaning of the function `heatstore()` are shown in the table below:
+
+| Argument  | Data Type | Meaning                                                                         | Symbol     |
+|---------------|---------------|---------------------------|---------------|
+| `detT`    | vector    | soil temperature change during a time interval (Celsius, Fahrenheit, or Kelvin) | $\Delta T$ |
+| `dettime` | vector    | time interval (s)                                                               | $\Delta t$ |
+| `theta`   | vector    | soil water content (%)                                                          | $\theta$   |
+| `roub`    | scalar    | soil bulk density (kg m^-3^). Default 2.7.                                      | $\rho_b$   |

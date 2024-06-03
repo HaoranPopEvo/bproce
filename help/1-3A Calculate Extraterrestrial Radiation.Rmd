@@ -1,0 +1,116 @@
+---
+title: "Calculate Extraterrestrial Radiation"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate extraterrestrial radiation.
+
+## Code Example
+
+```{r eval=FALSE}
+# Calculate Extraterrestrial Radiation
+# ********************************
+#
+# Calculate daily extraterrestrial radiation (MJ m-2 d-1) (Allen et al., 1998).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'year'        experimental year
+# ’month'       experimental month
+# 'day'         experimental day
+# 'lat'         latitude of the study site (decimal)
+# 
+# Calculated variables in the program
+#
+# 'doy'         day of the year
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+year  <- 2016
+month <- 9
+day   <- 22
+lat   <- 42.476708
+
+# Step 3: run the model
+doy <- DOY(year, month, day)
+ra(lat, doy)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `day`, `month`, and `year`: Experimental day. The provided example calculates the extraterrestrial radiation for 22 September 2016 at 42.476708^o^N and, therefore, we assigns 22 to the variable `day`, 9 to `month`, 2016 to `year`.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on extraterrestrial radiation at 42.476708^o^N.
+
+```{r comment=""}
+year  <- 2016
+month <- 9
+day   <- 22
+lat   <- 42.476708
+```
+
+**Step3:** Run the model. The first step is to calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doy <- DOY(year, month, day)
+cat(paste0(day,"/",month,"/",year," is the ",doy,"th day of ",year,".\n"))
+```
+
+The extraterrestrial radiation ($R_a$, MJ m^-2^ d^-1^) can be calculated as (Allen et al., 1998):
+
+$$
+R_a=\frac{24·60}{\pi}·G_{sc}d_r[\omega_s\sin\phi\sin\delta+\cos\phi\cos\delta\sin\omega_s],\quad(2)
+$$ where $G_{sc}$ is solar constant (0.0820 MJ m^-2^ min^-1^), $d_r$ is inverse relative distance Earth-Sun, $\omega_s$ is sunset hour angle, $\phi$ is latitude (in radius), $\delta$ is solar decimation (in radius). Radius will be automatically converted into decimals through the function `ra`. $d_r$ is given by:
+
+$$
+d_r=1+0.033\cos\left( \frac{2\pi}{365}\text{DOY} \right),\quad(3)
+$$
+
+while $\delta$ can be calculated as:
+
+$$
+\delta=0.409\sin\left( \frac{2\pi}{365}\text{DOY}-1.39 \right), (4)
+$$
+
+The sunset hour angle $\omega_s$ is given by:
+
+$$
+\omega_s=\arccos\left( -\tan\phi\tan\delta\right),\quad(5)
+$$
+
+```{r comment=""}
+Ra <- ra(lat, doy)
+
+cat(paste0(
+  "Date = ", day, "/", month, "/", year, "\n",
+  "Latitude = ", lat, "\n",
+  "Extraterrestrial Radiation = ", round(Ra, 3), " (MJ m-2 d-1)\n"
+))
+```
+
+## Reference
+
+Allen, R. G., Pereira, L. S., Raes, D. and Smith, M. (1998). Crop Evapotranspiration -- Guidelines for Computing Crop Water Requirements, FAO Irrigation and Drainge Paper 56, FAO, 1998, ISBN 92-5-104219-5.

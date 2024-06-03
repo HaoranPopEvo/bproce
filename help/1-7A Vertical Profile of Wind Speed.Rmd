@@ -1,0 +1,97 @@
+---
+title: "Vertical Profile of Wind Speed"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to generate wind speed profile through the function `ws()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Generate Vertical Profile of Wind Speed
+# ********************************
+#
+# Calculate wind speed at different heights above ground level.
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'z'         height above ground level (m)
+# 'uz'        horizontal wind speed (m s−1) at height z (m)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+z <- seq(1, 10, 0.1)
+
+# Step 3: run the model
+uz <- ws(z, mode = "windz")
+
+# Step 4: visualize the result
+plot(
+  uz, z, type = "l",
+  xlab = "Horizontal wind speed",
+  ylab = "Height above ground level",
+  main = "Vertical Profile of Wind Speed"
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `z`: Height above ground level (m). The provided example concerns the variation of wind speed with height. Therefore, we calculate the wind speed at 0, 0.1, 0.2, ..., 10m.
+
+```{r comment=""}
+z <- seq(1, 10, 0.1)
+
+cat("Height above ground level (m):", head(z), "...", tail(z), "\n")
+```
+
+**Step3:** Run the model. The wind profile of homogeneous vegetation under neutral atmospheric conditions is typically expressed as a logarithmic function of height ($z$) from the ground, where horizontal wind speed ($U$) decreases at heights approaching the ground, as a consequence of surface's drag effects:
+
+$$U(z)=\frac{u^*}{\kappa}·\ln(\frac{z-d}{z_0})$$
+
+where $U(z)$ is the horizontal wind speed (m s^−1^) at height $z$ (m); $u^∗$ is the friction velocity (m s^−1^ ), $\kappa$ is the von Karmon constant with an average value of 0.35 -- 0.43 (a value of 0.40 is often used in the literature), $d$ (m) is a zero plain displacement, and $z_0$ is the roughness length (m) at which is $U$ is near zero. Note that $z-d$ must be a positive value, so values of $z$ which are smaller than the displacement coefficient $d$ will be automatically ignored.
+
+```{r comment=""}
+uz <- ws(z, mode = "windz")
+
+print(head(data.frame(z=z, uz=uz)), digits = 3)
+```
+
+The arguments and their meaning of the function `ws()` that might change the calculated result in this example are shown in the table below:
+
+| Argument | Data Type | Meaning                                                                      | Symbol   |
+|----------|-----------|------------------------------------------------------------------------------|----------|
+| `z`      | vector    | height above ground level (m)                                                | $z$      |
+| `d`      | vector    | zero plain displacement (m). Default 0.08                                    | $d$      |
+| `z0`     | vector    | roughness length (m) at which wind speed is near zero. Default 0.01          | $z_0$    |
+| `ustar`  | scalar    | friction velocity (m s^-1^). Default 0.1                                     | $u^*$    |
+| `kappa`  | scalar    | von Karmon constant. Default 0.4                                             | $\kappa$ |
+| `mode`   | character | options of analysis. Must be set as `"windz"` to generate wind speed profile | /        |
+
+**Step 4:** Visualize the result. Create a line plot of height against predicted wind speed through the function `plot()`:
+
+```{r comment=""}
+plot(
+  uz, z, type = "l",
+  xlab = "Horizontal wind speed",
+  ylab = "Height above ground level",
+  main = "Vertical Profile of Wind Speed"
+)
+```

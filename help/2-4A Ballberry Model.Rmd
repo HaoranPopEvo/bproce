@@ -1,0 +1,210 @@
+---
+title: "Ball-Berry Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate stomatal conductance using Ball-Berry (BB) model.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Stomatal Conductance based on Ball-Berry Model
+# *****************************************************************
+#
+# Calculate stomatal conductance based on Ball-Berry model (Ball et al., 1987)
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which contains two columns (with table titles)
+#                * column 1 (An): photosynthesis rate (µmol m−2 s-1)
+#                * column 2 (cs): CO2 concentration of leaf surface (µmol mol-1)
+#                * column 3 (hs): relative humidity at the leaf surface (from 0-1)
+#                * column 4 (VPD): vapor pressure deficit (kPa)
+# 'g0'          minimum conductance value (mol m−2 s−1). A model parameter
+# 'g1'          A model parameter (μmol m−2 s−1)
+# 'tau'         parameter
+# 'VPD_0'       value of VPD at which stomatal conductance becomes zero (kPa)
+#
+# Calculated variables in the program
+# 'An'          net leaf CO2 assimilation rate (μmol m−2 s−1).
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/2-4A Ballberry Model Input.csv"
+g0    <- 0.6
+g1    <- 3
+tau   <- 50
+VPD_0 <- 7.35
+
+# Step 3: read data
+dat   <- read.csv(path) # read the CSV file
+                        #  * column 1 ($An): photosynthesis rate
+                        #  * column 2 ($cs): CO2 concentration of leaf surface
+                        #  * column 3 ($hs): relative humidity at the leaf surface
+                        #  * column 4 ($VPD): vapor pressure deficit
+
+# Step 4: run the model
+gs_bb      <- photo.ballberry(dat, g0 = g0, g1 = g1)
+                        # use Ball-Berry model
+gs_leuning <- photo.ballberry(dat, g0 = g0, g1 = g1, tau = tau, model = "leuning")
+                        # use Leuning model
+gs_c3      <- photo.ballberry(dat, g0 = g0, g1 = g1, tau = tau, VPD_0 = VPD_0, model = "c3")
+                        # use C3 plant model
+gs_vpd     <- photo.ballberry(dat, g0 = g0, g1 = g1, model = "vpd")
+                        # use VPD model
+
+# Step 5: present and visualize the result
+print(data.frame(dat, gs_bb, gs_leuning, gs_c3, gs_vpd), digit = 3)
+
+plot(
+  dat$cs, gs_bb, col=2, ylim=range(c(gs_bb, gs_leuning, gs_c3, gs_vpd)), type="l",
+  xlab = expression(CO[2]*" concentration of leaf surface"),
+  ylab = "Stomatal Conductance",
+  main = "Stomatal Conductance Estimated by four models"
+)           # stomatal conductance versus CO2 concentration (BB model)
+lines(dat$cs, gs_leuning, col=3, type="l")
+            # stomatal conductance versus CO2 concentration (Leuning model)
+lines(dat$cs, gs_c3, col=4, type="l")
+            # stomatal conductance versus CO2 concentration (C3 model)
+lines(dat$cs, gs_vpd, col=5, type="l")
+            # stomatal conductance versus CO2 concentration (VPD model)
+legend("right", pch=c(15, 15), col=c(2, 3, 4, 5), bty="n",
+       legend=c("Ball-berry", "Leuning", "C3", "VPD"))    # add legends
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. The sample file "2-4A Ballberry Model Input.csv" contains four columns:
+
+    -   Column 1: Photosynthesis rate (µmol m^−2^ s^-1^).
+
+    -   Column 2: CO~2~ concentration of leaf surface (µmol mol^-1^).
+
+    -   Column 3: Relative humidity at the leaf surface. Valid from 0--1.
+
+    -   Column 4: Vapor pressure deficit (kPa). It could be measured at field or be calculated from air temperature and relative humidity (See Section 1-2A, 1-2B).
+
+```{r comment=""}
+path  <- "./data/2-4A Ballberry Model Input.csv"
+g0    <- 0.6
+g1    <- 3
+tau   <- 50
+VPD_0 <- 7.35
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat   <- read.csv(path) # read the CSV file
+                        #  * column 1 ($An): photosynthesis rate
+                        #  * column 2 ($cs): CO2 concentration of leaf surface
+                        #  * column 3 ($hs): relative humidity at the leaf surface
+                        #  * column 4 ($VPD): vapor pressure deficit
+
+head(dat)               # print first parts of the data
+```
+
+**Step4:** Run the model. The Ball-Berry model is expressed as (Ball et al., 1987):
+
+$$
+g_s=g_0+g_1·A_n·\frac{h_s}{c_s},\quad (1)
+$$
+
+where $g_s$ is the stomatal conductance (µmol m^−2^ s^−1^), $A_n$ is the photosynthesis rate (µmol m^−2^ s^−1^), $h_s$ (ranging from 0--1) is the fractional relative humidity at the leaf surface, $c_s$ (µmol mol^-1^) is the CO~2~ concentration of the leaf surface, $g_0$ and $g_1$ are empirically estimated intercept and slope, respectively.
+
+```{r comment=""}
+gs_bb <- photo.ballberry(dat, g0 = g0, g1 = g1)
+
+print(head(data.frame(An = dat$An, hs = dat$hs, cs = dat$cs, gs_bb)), digits = 3)
+```
+
+Note that the column `$VPD` in the data frame `dat` is not used for calculating stomatal conductance via equation (1).
+
+A modified Ball-Berry model proposed by Leuning (1990) is expressed as:
+
+$$
+g_s=g_0+\frac{g_1·A_n}{c_s-\Gamma},\quad (2)
+$$
+
+where $Γ$ (µmol mol^-1^) is a model parameter. To calculate stomatal conductance via equation (2), set argument `model` as `"leuning"`:
+
+```{r comment=""}
+gs_leuning <- photo.ballberry(dat, g0 = g0, g1 = g1, tau = tau, model = "leuning")
+
+print(head(data.frame(dat$An, dat$hs, dat$cs, gs_leuning)), digits = 3)
+```
+
+Note that the column `$VPD` in the data frame `dat` is not used in equation (2). When the argument `model` is set as `c3`, the function uses a different model (Leuning et al., 1995) to calculate $g_s$:
+
+$$
+g_s=g_0+\frac{g_1·A_n}{(c_s-\Gamma)(1+\frac{D_s}{D_0})},\quad (3)
+$$
+
+where $D_0$ (kPa) is the value of vapor pressure density (VPD) at which stomatal conductance becomes zero, $D_s$ (kPa) is the actual VPD. When calculating $g_s$ based on equation (3), the column `$VPD` (corresponding to $D_s$) instead of `$hs` in the data frame `dat` will be used. Also, parameter `VPD_0` (corresponding to $D_0$) will be used as a input to the function `photo.ballberry`.
+
+```{r comment=""}
+gs_c3      <- photo.ballberry(dat, g0 = g0, g1 = g1, tau = tau, VPD_0 = VPD_0, model = "c3")
+
+print(head(data.frame(dat$An, dat$cs, dat$VPD, gs_c3)), digits = 3)
+```
+
+When the argument `model` is set as `"vpd"`, the function uses the following equation (Lloyd, 1991; Leuning et al., 1995; Medlyn et al., 2011):
+
+$$
+g_s=g_0+1.6·(1+\frac{g_1}{\sqrt D_s})·\frac{A_n}{c_s},\quad(4)
+$$
+
+```{r comment=""}
+gs_vpd     <- photo.ballberry(dat, g0 = g0, g1 = g1, model = "vpd")
+
+print(head(data.frame(dat$An, dat$cs, dat$VPD, gs_vpd)), digits = 3)
+```
+
+Step5: Visualize the result. Create a line plot of $g_s$ against $c_i$ through the function `plot()`:
+
+```{r comment=""}
+plot(
+  dat$cs, gs_bb, col=2, ylim=range(c(gs_bb, gs_leuning, gs_c3, gs_vpd)), type="l",
+  xlab = expression(CO[2]*" concentration of leaf surface"),
+  ylab = "Stomatal Conductance",
+  main = "Stomatal Conductance Estimated by four models"
+)           # stomatal conductance versus CO2 concentration (BB model)
+lines(dat$cs, gs_leuning, col=3, type="l")
+            # stomatal conductance versus CO2 concentration (Leuning model)
+lines(dat$cs, gs_c3, col=4, type="l")
+            # stomatal conductance versus CO2 concentration (C3 model)
+lines(dat$cs, gs_vpd, col=5, type="l")
+            # stomatal conductance versus CO2 concentration (VPD model)
+legend("right", pch=c(15, 15), col=c(2, 3, 4, 5), bty="n",
+       legend=c("Ball-berry", "Leuning", "C3", "VPD"))    # add legends
+```
+
+## References
+
+Ball, J. T., Woodrow, I. E., and Berry, J. A. (1987). A model predicting stomatal conductance and its contribution to the control of photosynthesis under different environmental conditions. In Progress in Photosynthesis Research (pp. 221--224). Springer, Dordrecht. <http://doi.org/10.1007/978-94-017-0519-6-48.>
+
+Leuning, R. (1990). Modelling stomatal behaviour and photosynthesis of Eucalyptus grandis. Functional Plant Biology, 17(2), 159--175.
+
+Leuning, R. (1995). A critical appraisal of a combined stomatal‐photosynthesis model for C~3~ plants. Plant, Cell & Environment, 18(4), 339--355.
+
+Lloyd, J. (1991). Modelling stomatal responses to environment in Macadamia integrifolia. Functional Plant Biology, 18(6), 649--660.
+
+Medlyn, B. E., Duursma, R. A., Eamus, D., Ellsworth, D. S., Prentice, I. C., Barton, C. V., Crous, K. Y., De Angelis, P., Freeman, M., and Wingate, L. (2011). Reconciling the optimal and empirical approaches to modelling stomatal conductance. Global Change Biology, 17(6), 2134--2144.

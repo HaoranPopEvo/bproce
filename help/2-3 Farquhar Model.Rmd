@@ -1,0 +1,161 @@
+---
+title: "Farquahar Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate ecosystem production based on Farquahar model.
+
+## Code Example(s)
+
+An \<- photo.farquhar(ci, Vmax, Jmax, Q10, Rd = Rd)
+
+```{r eval=FALSE}
+# Ecosystem Production based on Farquahar Model
+# *****************************************************************
+#
+# Calculate ecosystem production based on Farquahar Model (Farquahar
+# and Menten, 1980)
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'ci'        	intercellular CO2 concentration (µmol mol−1)
+# 'Vmax'        maximum activity of Rubisco (µmol m−2 s−1)
+# 'Jmax'        electron transport rate (µmol m−2 s−1)
+# 'Q10'         Q10 value of leaf respiration modeled with leaf temperature
+# 'Rd'          respiration rate (μmol m-2 s-1)
+#
+# Calculated variables in the program
+# 'An'          net leaf CO2 assimilation rate (μmol m-2 s-1).
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+ci   <- seq(1e4, 1e5, 1e3)
+Vmax <- 20
+Jmax <- 200
+Q10  <- 3.18
+Rd   <- 0
+
+# Step 3: run the model
+An   <- photo.farquhar(ci, Vmax, Jmax, Q10, Rd = Rd)
+
+# Step 4: present and visualize the result
+print(data.frame(ci, An), digits = 3)
+       # column 1: intercellular CO2 concentration
+       # column 2: predicted net leaf CO2 assimilation rate
+
+plot(
+    ci, An, type="l",
+    xlab = expression("Intercellular "*CO[2]*" concentration"),
+    ylab = expression("Net leaf "*CO[2]*" assimilation rate"),
+    main = "Photosynthesis Rate Estimated by Farquahar Model"
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `ci`: Intercellular CO~2~ concentration ($c_i$, µmol mol^−1^). The provided example calculates net leaf CO~2~ assimilation rate ($A_n$, µmol m^−2^ s^−1^) when $c_i$ changes from 10^4^ to 10^5^ µmol m^−2^ s^−1^.
+
+-   `Vmax`: Maximum activity of Rubisco (µmol m^−2^ s^−1^). The provided example uses 20 µmol m^−2^ s^−1^.
+
+-   `Jmax`: Electron transport rate (µmol m^−2^s^−1^). The provided example uses 200 µmol m^−2^ s^−1^.
+
+-   `Q10`: Q10 value of leaf respiration modeled with leaf temperature. The provided example uses 3.18.
+
+-   `Rd`: Respiration rate (μmol m^−2^ s^−1^). The provided example assumes no respiration.
+
+```{r comment=""}
+ci   <- seq(1e4, 1e5, 1e3)
+Vmax <- 20
+Jmax <- 200
+Q10  <- 3.18
+Rd   <- 0
+```
+
+**Step 3:** Run the model. The Farquhar model expresses the relationship between $A_n$ and three rates:
+
+$$
+A_n = \min(A_c, A_j, A_p),\quad (1)
+$$where $A_c$, $A_j$, and $A_p$ are the photosynthesis rate for Rubisco-limited, RuBP-limited, and product-limited assimilations, respectively. Firstly, the photosynthesis rate $A_c$ can be calculated as:
+
+$$
+A_c=\frac{V_{max}·(c_i-\Gamma^*)}{c_i+K_c·(1+\frac{o_i}{K_o})}, \quad (2)
+$$
+
+$$
+\Gamma^*=\frac{0.5·o_i}{2600·0.57^{Q_{10}}},\quad(3)
+$$
+
+$$
+K_c=30·2.1^{Q_{10}},\quad (4)
+$$
+
+$$
+K_o=30000·1.2^{Q_{10}},\quad(5)
+$$
+
+where $V_{max}$ is the maximum activity of Rubisco (µmol m^−2^ s^−1^), $c_i$ is the intercellular CO~2~ concentration (µmol mol^−1^), $Γ^∗$ is the CO~2~ compensation point in the absence of day respiration ($R_d$), $K_c$ is the Michaelis-Menten constant of Rubisco for CO~2~, $o_i$ is the oxygen (O~2~) concentration in the atmosphere (209 mol mol^−1^), $K_o$ is the Michaelis-Menten constant of Rubisco for O~2~, and $Q_{10}$ is the leaf respiration and can be modeled with leaf temperature.
+
+Secondly, the RuBP-limited photosynthesis rate $A_j$ is calculated as:
+
+$$
+A_j=\frac{J_{max}·(c_i-\Gamma^*)}{4·c_i+8·\Gamma^*},\quad (6)
+$$where $J_{max}$ is the electron transport rate (µmol m^−2^ s^−1^) and varies with absorbed photosynthetically active radiation.
+
+Finally, the product-limited photosynthesis rate is calculated as:
+
+$$
+A_p=3·T_p,\quad (7)
+$$where $T_p$ (µmol m^−2^) is the triose phosphate utilization rate. This rarely limits the rate of photosynthesis under physiological conditions, hence the default value of $T_p$ being infinitive in the function `photo.farquhar()`.
+
+```{r comment=""}
+An   <- photo.farquhar(ci, Vmax, Jmax, Q10, Rd = Rd)   
+
+print(head(data.frame(ci, An)), digits = 3)
+       # column 1: intercellular CO2 concentration
+       # column 2: predicted net leaf CO2 assimilation rate
+```
+
+The arguments and their meaning of the function `photo.landsberg.fit()` are shown in the table below:
+
+| Argument | Data Type | Meaning                                                                | Symbol    |
+|----------------|----------------|-------------------------|----------------|
+| `ci`     | vector    | intercellular CO~2~ concentration (µmol mol^−1^)                       | $c_i$     |
+| `Vmax`   | scalar    | maximum activity of Rubisco (µmol m^−2^ s^−1^)                         | $V_{max}$ |
+| `Jmax`   | scalar    | electron transport rate (µmol m^−2^ s^−1^)                             | $J_{max}$ |
+| `Q10`    | scalar    | Q10 value of leaf respiration                                          | $Q_{10}$  |
+| `Tp`     | scalar    | triose phosphate utilization rate (µmol m^−2^). Default infinitive     | $T_p$     |
+| `oi`     | scalar    | oxygen (O~2~) concentration in the atmosphere. Default 209 mol mol^-1^ | $o_i$     |
+| `Rd`     | scalar    | respiration rate (μmol m^-2^ s^-1^)                                    | $R_d$     |
+
+**Step4:** Visualize the result. Create a line plot of $A_n$ against $c_i$ through the function `plot()`:
+
+```{r comment=""}
+plot(
+    ci, An, type="l",
+    xlab = expression("Intercellular "*CO[2]*" concentration"),
+    ylab = expression("Net leaf "*CO[2]*" assimilation rate"),
+    main = "Photosynthesis Rate Estimated by Farquahar Model"
+)
+```
+
+## Reference
+
+Farquhar, G. D., von Caemmerer, S. V., and Berry, J. A. (1980). A biochemical model of photosynthetic CO2 assimilation in leaves of C3 species. Planta, 149(1), 78--90.

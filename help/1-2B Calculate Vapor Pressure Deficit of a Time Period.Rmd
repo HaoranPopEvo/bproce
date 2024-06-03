@@ -1,0 +1,347 @@
+---
+title: "Calculate Vapor Pressure Deficit of a Time Period"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate vapor pressure deficit (VPD) of a time period through the function `vpdeficit()`. Calculation of other variables related to VPD, including:
+
+-   Saturation vapor pressure
+
+-   Saturation vapor density
+
+-   Actual vapor density
+
+-   Actual vapor pressure
+
+-   Dew point temperature
+
+-   Wet-bulb temperature
+
+is also shown in this section.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Vapor Pressure Deficient for 22/09/2016 at Kellogg Biological Station
+# *****************************************************************
+#
+# Calculate vapor pressure deficient (VPD). Data used in this example is collected
+# in 2016 from Kellogg Biological Station (KBS), Michigan, USA (Zenone et al., 2011
+# , 2013; Abraha et al., 2015, 2018).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which conains four columns (with table titles)
+#                * column 1: observation date. Required format "dd/mm/yyyy". Note 
+#                    that this variable is not required for calculating VPD
+#                * column 2: hours of the day (h). Note that this variable is not
+#                    not required for calculating VPD.
+#                * column 3: hourly air temperature (Celsius). Note that air 
+#                    temperature must be above 0 Celsius.
+#                * column 4: relative humidity (%). Valid range 0-100.
+#
+# Calculated variables in the program
+# 
+# 'svp'         saturation vapor pressure (kPa)
+# 'svd'         saturation vapor density (kg m-3)
+# 'avd'         actual vapor density (kg m-3)
+# 'avp'         actual vapor pressure (kPa)
+# 'vpd'         vapor pressure deficit (kPa)
+# 'dew'         dew point temperature (Celsius)
+# 'wet'         wet-bulb temperature (Celsius)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/1-2B Switchgrass Temperature Humidity.csv"
+
+# Step 3: read data
+dat   <- read.csv(path)       # read the CSV file
+                              #  * column 1 ($date): observation date
+                              #  * column 2 ($hour): hours of the day
+                              #  * column 3 ($t_a): air temperature
+                              #  * column 4 ($h): relative humidity
+t_a   <- dat$t_a              # extract hourly air temperature
+h     <- dat$h                # extract relative humidity
+
+# Step 4: run the model
+svp   <- satvp(t_a)           # calculate saturation vapor pressure
+svd   <- satvd(t_a)           # calculate saturation vapor density
+avd   <- actualvd(t_a, h)     # calcualte actual vapor density
+avp   <- actualvp(t_a, h)     # calculate actual vapor pressure
+vpd   <- vpdeficit(t_a, h)    # calculate vapor pressure deficit
+dew   <- dewT(t_a, h)         # calculate dew point temperature
+wet   <- wetbulbT(t_a, h)     # calculate wet-bulb temperature
+
+res   <- data.frame(
+  dat, svp=svp, svd=svd, avd=avd, avp=avp, vpd=vpd, dew=dew, wet=wet
+)                             # calculated result
+                              #  * column 1  ($date): observation date
+                              #  * column 2  ($hour): hours of the day
+                              #  * column 3  ($t_a): air temperature
+                              #  * column 4  ($h): relative humidity
+                              #  * column 5  ($svp): saturation vapor pressure
+                              #  * column 6  ($svd): saturation vapor density
+                              #  * column 7  ($avd): actual vapor density
+                              #  * column 8  ($avp): actual vapor pressure
+                              #  * column 9  ($vpd): vapor pressure density (VPD)
+                              #  * column 10 ($dew): dew point temperature
+                              #  * column 11 ($wet): wet-bulb temperature
+
+# Step 5: show and visualize results
+print(res, digits = 3)        # present the output
+
+par(mfrow=c(2, 3))            # create a matrix of plots in one plotting space
+plot(
+  res$hour, res$svp, type = "l", 
+  xlab = "Hour", ylab = "Saturation vapor pressure"
+)                             # plot saturation vapor pressure versus time
+plot(
+  res$hour, res$svd, type = "l", 
+  xlab = "Hour", ylab = "Saturation vapor density"
+)                             # plot saturation vapor density versus time
+plot(
+  res$hour, res$avd, type = "l", 
+  xlab = "Hour", ylab = "Actual vapor density"
+)                             # plot actual vapor density versus time
+plot(
+  res$hour, res$avp, type = "l", 
+  xlab = "Hour", ylab = "Actual vapor pressure"
+)                             # plot actual vapor pressure versus time
+plot(
+  res$hour, res$vpd, type = "l", 
+  xlab = "Hour", ylab = "Vapor pressure deficit"
+)                             # plot vapor pressure deficit versus time
+plot(
+  res$hour, res$dew, col=2, ylim=range(c(dew, wet)), type="l",
+  xlab = "hour", ylab = "Temperature"
+)                             # plot dew point temperature versus time
+lines(res$hour, res$wet, col=3, type="l")
+                              # plot wet-bulb temperature versus time
+legend("right", pch=c(15, 15), col=c(2, 3), bty="n",
+       legend=c("Dew point", "Wet-bulb")) # add legends
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. The sample file "1-2B Switchgrass Temperature Humidity" contains four columns:
+
+    -   Column 1: Observation date. The format should be 'dd/mm/yyyy', where 'dd' refers to day, 'mm' refers to month and 'yyyy' refers to the year number. However, it will not be used when calculating VPD.
+
+    -   Column 2: Hours of the day (h). It will not be used when calculating VPD.
+
+    -   Column 3: Hourly air temperature (Celsius or Fahrenheit). Note that air temperature must be above 0^o^C. Otherwise, the model used in this section is not valid.
+
+    -   Column 4: Relative humidity (%). Valid range 0--100.
+
+```{r comment=""}
+path  <- "./data/1-2B Switchgrass Temperature Humidity.csv"
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat <- read.csv(path)
+head(dat)                     # print first parts of the data
+```
+
+Then extract air temperatures and relative humidity from the data set.
+
+```{r comment=""}
+t_a   <- dat$t_a              # extract hourly air temperature
+h     <- dat$h                # extract relative humidity
+```
+
+**Step4:** Run the model. The first step is to estimate saturation vapor pressure ($e_s$, kPa) from Tetens equation (Monteith and Unsworth, 2013):
+
+$$
+e_s=0.6118e^{\frac{17.502T_a}{T_a+240.97}},\quad(1)
+$$ where $T_a$ is the air temperature above 0 ^o^C.
+
+```{r comment=""}
+svp <- satvp(t_a)              # calculate saturation vapor pressure
+
+print(head(data.frame(
+  t_a = t_a, svp = svp
+)), digits = 3)                # present the result
+```
+
+With known air temperature and $e_s$, saturation vapor density ($E_s$, kg m^-3^) can be calculated as:
+
+$$
+E_s=\frac{e_s}{4.62×10^{-4}(T_a+273.15)},\quad (2)
+$$Although $e_s$ should be estimated before computing $E_s$, function `satvd()` can automatically complete both tasks.
+
+```{r comment=""}
+svd <- satvd(t_a)              # calculate saturation vapor density
+
+print(head(data.frame(
+  t_a = t_a, svd = svd
+)), digits = 3)                # present the result
+```
+
+With known relative humidity and $E_s$, actual vapor density ($E_a$, kg m^-3^) can be estimated as:
+
+$$
+E_a=\frac{h·E_s}{100},\quad (3)
+$$ Similar to `satvd()`, function `actualvd()` is able to take equations (1--3) into the calculation of $E_a$ simultaneously. Therefore, the input arguments of `actualvd()` include both air temperature and relative humidity.
+
+```{r comment=""}
+avd <- actualvd(t_a, h)        # calculate actual vapor density
+
+print(head(data.frame(
+  t_a = t_a, h = h, avd = avd
+)), digits = 3)                # present the result
+```
+
+Actual vapor pressure ($e_a$, kPa) is then calculate by the following equation:
+
+$$
+e_a=\frac{(T_a+273.15)·E_a}{2170},\quad(4)
+$$
+
+Calculation of $e_a$ via equations (1--4) can be done through the function `actualvp()`.
+
+```{r comment=""}
+avp <- actualvp(t_a, h)        # calculate actual vapor pressure
+
+print(head(data.frame(
+  t_a = t_a, h = h, avp = avp
+)), digits = 3)                # present the result
+```
+
+With known $e_s$ and $e_a$, VPD can be calculated as the difference between these two variables:
+
+$$
+VPD = e_s-e_a,\quad(5)
+$$
+
+Function `vpdeficit()` can be used for computing VPD via equations (1--5).
+
+```{r comment=""}
+vpd <- vpdeficit(t_a, h)       # calculate vapor pressure deficit
+
+print(head(data.frame(
+  t_a = t_a, h = h, vpd = vpd
+)), digits = 3)                # present the result
+```
+
+Dew point temperature ($T_d$, ^o^C) is estimated as (Fritschen and Gay, 1979):
+
+$$
+T_d=\frac{273.3\log_{10}(\frac{e_a}{0.61078})}{17.269-\log_{10}(\frac{e_a}{0.61078})},\quad (6)
+$$
+
+Function `dewT()` can be used for computing $T_d$ via equations (1--4, 6).
+
+```{r comment=""}
+dew <- dewT(t_a, h)             # calculate dew point temperature
+
+print(head(data.frame(
+  t_a = t_a, h = h, dew = dew
+)), digits = 3)                 # present the result
+```
+
+Wet-bulb temperature ($T_w$, oC) can be calculated by (Campbell and Norman, 2012):
+
+$$
+T_w=\frac{e_a+\gamma·E_a·T_a}{e_s+\gamma·E_a},\quad (7)
+$$
+
+where $\gamma$ is the thermodynamic psychometric constant, which is estimated by:
+
+$$
+\gamma=\frac{C_p}{\lambda},\quad(8)
+$$
+
+where $C_p$ is the specific heat of air (29.3 J mol^-1^ ^o^C^-1^) and $\lambda$ is the latent heat vaporization of water (40.660 kJ mol^-1^, or 2.260 kJ kg^-1^). Based on equation (1--4, 7--8), $T_w$ can be calculated through the function `wetbulbT()`.
+
+```{r comment=""}
+wet <- wetbulbT(t_a, h)          # calculate wet-bulb temperature
+
+print(head(data.frame(
+  t_a = t_a, h = h, wet = wet
+)), digits = 3)                 # present the result
+```
+
+As discussed above, we have already computed $e_s$, $E_a$, $E_s$,$e_a$, VPD, $T_d$, and $T_w$ from air temperature and relative humidity. Now we can combine these results by columns and view them.
+
+```{r comment=""}
+res <- data.frame(
+  dat, svp=svp, svd=svd, avd=avd, avp=avp, vpd=vpd, dew=dew, wet=wet
+) 
+print(head(res), digits = 3)
+```
+
+**Step5:** Save and visualize results. Use the `write.csv()` function to send outputs to a CSV file.
+
+```{r eval=FALSE}
+write.csv(res, 
+          "./data/1-2B Calculate Vapor Pressure Deficit Output.csv", 
+          row.names = FALSE)
+```
+
+Create a line plot of calculated variables against time through the function `plot()`:
+
+```{r}
+par(mfrow=c(2, 3))            # create a matrix of plots in one plotting space
+plot(
+  res$hour, res$svp, type = "l", 
+  xlab = "Hour", ylab = "Saturation vapor pressure"
+)                             # plot saturation vapor pressure versus time
+plot(
+  res$hour, res$svd, type = "l", 
+  xlab = "Hour", ylab = "Saturation vapor density"
+)                             # plot saturation vapor density versus time
+plot(
+  res$hour, res$avd, type = "l", 
+  xlab = "Hour", ylab = "Actual vapor density"
+)                             # plot actual vapor density versus time
+plot(
+  res$hour, res$avp, type = "l", 
+  xlab = "Hour", ylab = "Actual vapor pressure"
+)                             # plot actual vapor pressure versus time
+plot(
+  res$hour, res$vpd, type = "l", 
+  xlab = "Hour", ylab = "Vapor pressure deficit"
+)                             # plot vapor pressure deficit versus time
+plot(
+  res$hour, res$dew, col=2, ylim=range(c(dew, wet)), type="l",
+  xlab = "hour", ylab = "Temperature"
+)                             # plot dew point temperature versus time
+lines(res$hour, res$wet, col=3, type="l")
+                              # plot wet-bulb temperature versus time
+legend("right", pch=c(15, 15), col=c(2, 3), bty="n",
+       legend=c("Dew point", "Wet-bulb")) # add legends
+```
+
+## References
+
+Abraha, M., Chen, J., Chu, H., Zenone, T., John, R., Su, Y. J., Hamilton, S. K., and Robertson, G. P. (2015). Evapotranspiration of annual and perennial biofuel crops in a variable climate. Global Change Biology-Bioenergy, 7(6), 1344--1356.
+
+Abraha, M., Hamilton, S. K., Chen, J., and Robertson, G. P. (2018). Ecosystemcarbon exchange on conversion of Conservation Reserve Program grasslands to annual and perennial cropping systems. Agricultural and Forest Meteorology, 253, 151--160.
+
+Campbell, G. S., and Norman, J. (2012). An Introduction to Environmental Biophysics. Springer Science & Business Media. 286pp.
+
+Fritschen, L. J., and Gay, L. W. (1979). Environmental Instrumentation. Springer Science & Business Media. 216pp.
+
+Monteith, J., and Unsworth, M. (2013). Principles of Environmental Physics: Plants, Animals, and the Atmosphere. Academic Press. 423pp.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO~2~ fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

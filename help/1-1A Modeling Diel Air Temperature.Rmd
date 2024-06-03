@@ -1,0 +1,197 @@
+---
+title: "Modeling Diel Air Temperature"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate diel air temperature through the function `hourlyT()`.
+
+## Code Example
+
+```{r eval=FALSE}
+# Calculate Diel Air Temperature
+# ********************************
+#
+# Calculate diel air temperature based on the algorithm proposed by Parton and 
+# Logan (1981).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'year'        experimental year
+# ’month'       experimental month
+# 'day'         experimental day
+# 'hours'       hours of the day
+# 't_max'       daily maximum air temperature (Celsius or Fahrenheit)
+# 't_min'       daily minimum air temperature (Celsius or Fahrenheit)
+# 'lng'         longitute of the study site (decimal)
+# 'lat'         latitude of the study site (decimal)
+# 
+# 'doy'         day of the year
+# 'time_sr'     sunrise time (hour)
+# 'time_ss'     sunset time (hour)
+# 't_a'         air temperature (Celsius or Fahrenheit)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+year  <- 2016
+month <- 9
+day   <- 22
+hours <- seq(0, 23.5, 0.5)      # 0.5h, 1h, 1.5h, ..., 23.5h
+t_max <- 30.2
+t_min <- 14.3
+lng   <- -85.446758
+lat   <- 42.476708
+
+# Step 3: run the model
+doy <- DOY(year, month, day)          # calculate day of the year (DOY)
+
+time_sr <- sunRS(doy, lng, lat)[[1]]  # calculate sunrise time
+time_ss <- sunRS(doy, lng, lat)[[2]]  # calculate sunset time
+
+t_a <- hourlyT(hours, t_max, t_min, time_sr, time_ss,
+                    alpha = 1.5, beta = 4, gamma = 1)
+                                      # compute diel air temperature
+
+# Step 4: show and visualize results
+# hours are given in the first column while the corresponding air temperature is shown in the second column
+print(data.frame(hours, t_a))
+
+# plot air temperature versus time
+plot(
+  hours, t_a, type = "l", 
+  xlab = "Hours", 
+  ylab = "Predicted air temperature",
+  main = "Diel Air Temperature"
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `day`, `month`, and `year`: Experimental day. The provided example calculates the diel air temperature for 22 September 2016 at 42.476708^o^N and, therefore, we assigns 22 to the variable `day`, 9 to `month`, 2016 to `year`.
+
+-   `hours`: Hours of the day used for calculating air temperature. The provided example calculates air temperature in half-hour time resolution. Thus, we assigns time series (0h, 0.5h, 1h, ..., 23.5h) to the variable hours through the function `seq`.
+
+-   `t_max`: Daily maximum air temperature (Celsius or Fahrenheit). The provided example assigns 30.2°C as the maximum temperature for 22 September, 2016.
+
+-   `t_min`: Daily minimum temperature (Celsius or Fahrenheit). The provided example assigns 14.3°C as the minimum temperature for 22 September, 2016.
+
+-   `lng`: Longitude of the study site (in decimal). The provided example focuses on the air temperature at 85.446758^o^W.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on the air temperature at 42.476708^o^N.
+
+```{r comment=""}
+year  <- 2016
+month <- 9
+day   <- 22
+hours <- seq(0, 23.5, 0.5)
+t_max <- 30.2
+t_min <- 14.3
+lng   <- -85.446758
+lat   <- 42.476708
+```
+
+**Step3:** Run the model. The first step is to calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doy <- DOY(year, month, day)
+cat(paste0(day,"/",month,"/",year," is the ",doy,"th day of ",year,".\n"))
+```
+
+Sunrise time (Time~sr~, hour) and sunset time (Time~ss~, hour) are then calculated through the function `sunRS()` (see Section 1.4 for theoretical formulations):
+
+```{r comment=""}
+time_sr <- sunRS(doy, lng, lat)[[1]]
+time_ss <- sunRS(doy, lng, lat)[[2]]
+
+cat(
+  paste0("Longitude = ",lng, ", Latitude = ",lat,".\n"),
+  paste0("The sunrise time on ",day,"/",month,"/",year," is ",
+         floor(time_sr),":",round((time_sr-floor(time_sr))*60),".\n"),
+  paste0("The sunset time on ",day,"/",month,"/",year," is ",
+         floor(time_ss),":",round((time_ss-floor(time_ss))*60),".\n"),
+  "Day length =",round(time_ss-time_sr,2),"(hour).\n"
+)
+```
+
+A model proposed by Parton and Logan (1981) is then used to calculate air temperature. Air temperature $T_a$ between sunrise (plus an time lag $\gamma$ for $T_{min}$) and sunset is calculated as:
+
+$$T_a=(T_{max}-T_{min})·\sin\left( \frac{\pi·m}{D_L+2\alpha}\right)+T_{min},\quad(2)$$where *m* is the number of hours after $T_{min}$ occurs, $D_L$ is the day length (hour), and $\alpha$ is the lag coefficient for $T_{max}$. The day length can be calculated from geographic positions and DOY (see Section 1.4). For nighttime air temperature, the following function is used:
+
+$$T_a=T_{min}+(T_{sr}-T_{min})·e^{-\beta·\frac nZ},\quad(3)$$where $T_{sr}$ is the temperature at sunrise, $\beta$ is the nighttime temperature coefficient, $n$ is the number of hours after the sunset, and $Z$ is the night length (hour). $T_{sr}$ can be calculated as:
+
+$$T_{sr}=(T_{max}-T_{min})·\sin\left( \frac{\pi·(D_L-\gamma)}{D_L+2\alpha}\right)+T_{min},\quad(4)$$
+
+where $\gamma$ is the time lag for $T_{min}$. All these work can be done after the function `hourlyT()` is called:
+
+```{r comment=""}
+t_a <- hourlyT(hours, t_max, t_min, time_sr, time_ss,
+                    alpha = 1.5, beta = 4, gamma = 1)
+```
+
+The arguments and their meaning of `hourlyT()` is shown in the table below:
+
+| Argument  | Data Type | Meaning                                            | Symbol                    |
+|-----------|-----------|----------------------------------------------------|---------------------------|
+| `hours`   | vector    | time in hours used for calculating air temperature | /                         |
+| `t_max`   | scalar    | maximum air temperature (Celsius or Fahrenheit)    | $T_{max}$                 |
+| `t_min`   | scalar    | minimum air temperature (Celsius or Fahrenheit)    | $T_{min}$                 |
+| `time_sr` | scalar    | sunrise time (hour)                                | $\text{Time}_{\text{sr}}$ |
+| `time_ss` | scalar    | sunset time (hour)                                 | $\text{Time}_{\text{ss}}$ |
+| `alpha`   | scalar    | lag time for $T_{max}$ (hour). Default 1.5.        | $\alpha$                  |
+| `beta`    | scalar    | nighttime temperature coefficient. Default 4.      | $\beta$                   |
+| `gamma`   | scalar    | lag time for $T_{min}$ (hour). Default 1.          | $\gamma$                  |
+
+The returned vector `t_a` has the same length as `hours`, each entry corresponding to the predicted air temperature at a given time step.
+
+**Step4:** Show and visualize results. Use the function `data.frame()` function to create a data frame, tightly coupled vector `hours` and `t_a`. Then print the data frame:
+
+```{r comment=""}
+res <- data.frame(hours, t_a)
+
+cat(
+  paste0("Date = ",day,"/",month,"/",year,"\n"),
+  "Longitude =",lng,"\n",
+  "Latitude =",lat,"\n",
+  paste0("Sunrise and sunset time = (",round(time_sr,2),
+         ", ",round(time_ss,2),") (hour)\n"),
+  "Predicted air temperature:\n"
+)
+print(res, digits=4)
+```
+
+Create a line plot of predicted air temperature against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  hours, t_a, type = "l", 
+  xlab = "Hours", 
+  ylab = "Predicted air temperature",
+  main = "Diel Air Temperature"
+)
+```
+
+## References
+
+Parton, W. J., and Logan, J. A. (1981). A model for diurnal variation in soil and air temperature. Agricultural Meteorology, 23, 205--216.

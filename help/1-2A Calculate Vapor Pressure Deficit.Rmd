@@ -1,0 +1,238 @@
+---
+title: "Calculate Vapor Pressure Deficit"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate vapor pressure deficit (VPD) through the function `vpdeficit()`. Calculation of other variables related to VPD, including:
+
+-   Saturation vapor pressure
+
+-   Saturation vapor density
+
+-   Actual vapor density
+
+-   Actual vapor pressure
+
+-   Dew point temperature
+
+-   Wet-bulb temperature
+
+is also shown in this section.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Vapor Pressure Deficient
+# *****************************************************************
+#
+# Calculate vapor pressure deficient (VPD), saturation vapor pressure, saturation 
+# varpor density, actual vapor density, actual vapor pressure, dew point 
+# temperature, and wet-bulb temperature.
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'         air temperature (Celsius). Must be higher than 0 Celsius
+# 'h'           relative humidity (%). Valid range 0-100
+#
+# Calculated variables in the program
+# 
+# 'svp'         saturation vapor pressure (kPa)
+# 'svd'         saturation vapor density (kg m-3)
+# 'avd'         actual vapor density (kg m-3)
+# 'avp'         actual vapor pressure (kPa)
+# 'vpd'         vapor pressure deficit (kPa)
+# 'dew'         dew point temperature (Celsius)
+# 'wet'         wet-bulb temperature (Celsius)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+
+t_a <- 14.7   # air temperature
+h   <- 97     # relative humidity
+
+# Step 3: run the model
+svp <- satvp(t_a)           # calculate saturation vapor pressure
+svd <- satvd(t_a)           # calculate saturation vapor density
+avd <- actualvd(t_a, h)     # calcualte actual vapor density
+avp <- actualvp(t_a, h)     # calculate actual vapor pressure
+vpd <- vpdeficit(t_a, h)    # calculate vapor pressure deficit
+dew <- dewT(t_a, h)         # calculate dew point temperature
+wet <- wetbulbT(t_a, h)     # calculate wet-bulb temperature
+
+# Step 4: show results
+cat(
+  paste0("** Inputs: **\n",
+         "Air temperature: ", t_a, " (Celsius)\n",
+         "Relative humidity: ", h, " (%)\n",
+         "\n",
+         "** Outputs: **\n",
+         "Saturation vapor pressure: ", round(svp,3), " (kPa)\n",
+         "Saturation vapor density: ", round(svd,3), " (kg m-3)\n",
+         "Actual vapor density: " , round(avd,3), " (kg m-3)\n",
+         "Actual vapor pressure: " , round(avp,3), " (kPa)\n",
+         "Vapor pressure deficit (VPD): ", round(vpd,3), " (kPa)\n",
+         "Dew point temperature: ", round(dew,3), " (Celsius)\n",
+         "wet-bulb temperature: ", round(wet,3), " (Celsius)\n")
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `t_a`: Air temperature (Celsius). Must be over than 0^o^C. The observed value is 14.7^o^C in this example.
+
+-   `h`: Relative humidity (%). Valid range 0--100. The observed value is 97% in this example.
+
+```{r comment=""}
+t_a <- 14.7   # air temperature
+h   <- 97     # relative humidity
+```
+
+**Step3:** Run the model. The first step is to estimate saturation vapor pressure ($e_s$, kPa) from Tetens equation (Monteith and Unsworth, 2013):
+
+$$
+e_s=0.6118e^{\frac{17.502T_a}{T_a+240.97}},\quad(1)
+$$ where $T_a$ is the air temperature above 0 ^o^C.
+
+```{r comment=""}
+svp <- satvp(t_a)              # calculate saturation vapor pressure
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Saturation vapor pressure:", round(svp, 3), "(kPa)")
+)
+```
+
+With known air temperature and $e_s$, saturation vapor density ($E_s$, kg m^-3^) can be calculated as:
+
+$$
+E_s=\frac{e_s}{4.62×10^{-4}(T_a+273.15)},\quad (2)
+$$ Although $e_s$ should be estimated before computing $E_s$, function `satvd()` can automatically complete both tasks.
+
+```{r comment=""}
+svd <- satvd(t_a)              # calculate saturation vapor density
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Saturation vapor density:", round(svd, 3), "(kg m-3)")
+)
+```
+
+With known relative humidity and $E_s$, actual vapor density ($E_a$, kg m^-3^) can be estimated as:
+
+$$
+E_a=\frac{h·E_s}{100},\quad (3)
+$$Similar to `satvd()`, function `actualvd()` is able to take equations (1--3) into the calculation of $E_a$ simultaneously. Therefore, the input arguments of `actualvd()` include both air temperature and relative humidity.
+
+```{r comment=""}
+avd <- actualvd(t_a, h)        # calculate actual vapor density
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Relative humidity:", h, "(%)\n",
+        "Actual vapor density:", round(avd, 3), "(kg m-3)")
+)
+```
+
+Actual vapor pressure ($e_a$, kPa) is then calculate by the following equation:
+
+$$
+e_a=\frac{(T_a+273.15)·E_a}{2170},\quad(4)
+$$
+
+Calculation of $e_a$ via equations (1--4) can be done through the function `actualvp()`.
+
+```{r comment=""}
+avp <- actualvp(t_a, h)        # calculate actual vapor pressure
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Relative humidity:", h, "(%)\n",
+        "Actual vapor pressure:", round(svp, 3), "(kPa)")
+)
+```
+
+With known $e_s$ and $e_a$, VPD can be calculated as the difference between these two variables:
+
+$$
+VPD = e_s-e_a,\quad(5)
+$$
+
+Function `vpdeficit()` can be used for computing VPD via equations (1--5).
+
+```{r comment=""}
+vpd <- vpdeficit(t_a, h)       # calculate vapor pressure deficit
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Relative humidity:", h, "(%)\n",
+        "Vapor pressure deficit:", round(vpd, 3), "(kPa)")
+)
+```
+
+Dew point temperature ($T_d$, ^o^C) is estimated as (Fritschen and Gay, 1979):
+
+$$
+T_d=\frac{273.3\log_{10}(\frac{e_a}{0.61078})}{17.269-\log_{10}(\frac{e_a}{0.61078})},\quad (6)
+$$
+
+Function `dewT()` can be used for computing $T_d$ via equations (1--4, 6).
+
+```{r comment=""}
+dew <- dewT(t_a, h)             # calculate dew point temperature
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Relative humidity:", h, "(%)\n",
+        "Dew point temperature:", round(dew, 3), "(Celsius)")
+)
+```
+
+Wet-bulb temperature ($T_w$, oC) can be calculated by (Campbell and Norman, 2012):
+
+$$
+T_w=\frac{e_a+\gamma·E_a·T_a}{e_s+\gamma·E_a},\quad (7)
+$$
+
+where $\gamma$ is the thermodynamic psychometric constant, which is estimated by:
+
+$$
+\gamma=\frac{C_p}{\lambda},\quad(8)
+$$
+
+where $C_p$ is the specific heat of air (29.3 J mol^-1^ ^o^C^-1^) and $\lambda$ is the latent heat vaporization of water (40.660 kJ mol^-1^, or 2.260 kJ kg^-1^). Based on equation (1--4, 7--8), $T_w$ can be calculated through the function `wetbulbT()`.
+
+```{r comment=""}
+wet <- wetbulbT(t_a, h)          # calculate wet-bulb temperature
+
+cat(
+  paste("Air temperature:", t_a, "(Celsius)\n",
+        "Relative humidity:", h, "(%)\n",
+        "Wet-bulb temperature:", round(wet, 3), "(Celsius)")
+)
+```
+
+## References
+
+Campbell, G. S., and Norman, J. (2012). An Introduction to Environmental Biophysics. Springer Science & Business Media. 286pp.
+
+Fritschen, L. J., and Gay, L. W. (1979). Environmental Instrumentation. Springer Science & Business Media. 216pp.
+
+Monteith, J., and Unsworth, M. (2013). Principles of Environmental Physics: Plants, Animals, and the Atmosphere. Academic Press. 423pp.

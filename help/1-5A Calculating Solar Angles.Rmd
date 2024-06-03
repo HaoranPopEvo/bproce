@@ -1,0 +1,139 @@
+---
+title: "Calculating Solar Angles"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate zenith, azimuth, and elevation angles through the function `zangle()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate Solar Angles
+# ********************************
+#
+# Calculate the zenith, azimuth, and elevation angles for a single day. 
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'year'        experimental year
+# ’month'       experimental month
+# 'day'         experimental day
+# 'hours'       hours of the day (h)
+# 'lng'         longitute of the study site (decimal)
+# 'lat'         latitude of the study site (decimal)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+year  <- 2016
+month <- 9
+day   <- 22
+hours <- seq(0, 23.5, 0.5)      # 0.5h, 1h, 1.5h, ..., 23.5h
+lng   <- 85.446758
+lat   <- 42.476708
+
+# Step 3: run the model
+res <- zangle(year, month, day, lng, lat, time_series = hours)
+                                # calculated result
+                                  #  * column 1  ($time): hours of the day
+                                  #  * column 2  ($zenith): zenith angle
+                                  #  * column 3  ($azimuth): azimuth angle
+                                  #  * column 4  ($elevation): elevation angle
+
+# Step 4: show and visualize results
+print(res, digits = 3)          # present the results
+
+with(res, plot(
+  time, zenith, col=2, ylim=range(c(zenith, azimuth, elevation)), type="l",
+  xlab = "Hours of the day", ylab = "Solar Angles"
+))                              # plot zenith angle versus time
+with(res, lines(time, azimuth, col=3, type="l"))
+                                # plot azimuth angle versus time
+with(res, lines(time, elevation, col=4, type="l"))
+                                # plot elevation angle versus time
+legend("right", pch=c(15, 15, 15), col=c(2, 3, 4), bty="n",
+       legend=c("Zenith", "Azimuth", "Elevation"))          # add legends
+
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `day`, `month`, and `year`: Experimental day. The provided example calculates the solar angles for 22 September 2016 at 42.476708^o^N and, therefore, we assigns 22 to the variable `day`, 9 to `month`, 2016 to `year`.
+
+-   `hours`: Hours of the day used for calculating solar angles. The provided example calculates solar angles in half-hour time resolution. Thus, we assigns time series (0h, 0.5h, 1h, ..., 23.5h) to the variable hours through the function `seq`. Since the solar angles are only valid between the sunrise and sunset time, they will not be estimated during the night-time hours.
+
+-   `lng`: Longitude of the study site (in decimal). The provided example focuses on the solar angles at 85.446758^o^E. Thus we assign 85.446758 to `lng`.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on the solar angles at 42.476708^o^N. Thus we assign 42.476708 to `lat`.
+
+```{r comment=""}
+year  <- 2016
+month <- 9
+day   <- 22
+hours <- seq(0, 23.5, 0.5)      # 0.5h, 1h, 1.5h, ..., 23.5h
+lng   <- 85.446758
+lat   <- 42.476708
+```
+
+**Step3:** Zenith angle ($\psi$, decimal) is calculated from:
+
+$$
+\psi=\cos^{-1}(\sin\Phi\sin\delta+\cos\Phi\cos\delta\cos(15(t-t_0))),\quad(2)
+$$
+
+where $\Phi$ is latitude (decimal), $\delta$ is solar declination, $t$ is local time that can be estimated from longitude, $t_0$ is the time of solar noon. Solar declination $\delta$ can be estimated by:
+
+$$
+\delta=-23.25·\cos\left[ \frac{360}{365}(\text{DOY}+10)\right],\quad(3)
+$$
+
+Azimuth angle ($A_z$, decimal) can be calculated as:
+
+$$
+A_z=\cos^{-1}\left( \frac{-\sin\delta-\cos\delta\sin\psi\sin\Phi}{\cos\Phi\sin\psi} \right),\quad(4)
+$$
+
+Solar elevation angle can be calculated as the difference between 90^o^ and the zenith angle.
+
+```{r comment=""}
+res <- zangle(year, month, day, lng, lat, time_series = hours)
+                                # calculated result
+                                  #  * column 1  ($time): hours of the day
+                                  #  * column 2  ($zenith): zenith angle
+                                  #  * column 3  ($azimuth): azimuth angle
+                                  #  * column 4  ($elevation): elevation angle
+
+print(res, digits = 3)
+```
+
+**Step4:** Visualize the result. Create a line plot of predicted solar angles against time through the function `plot()`:
+
+```{r comment=""}
+with(res, plot(
+  time, zenith, col=2, ylim=range(c(zenith, azimuth, elevation)), type="l",
+  xlab = "Hours of the day", ylab = "Solar Angles"
+))                              # plot zenith angle versus time
+with(res, lines(time, azimuth, col=3, type="l"))
+                                # plot azimuth angle versus time
+with(res, lines(time, elevation, col=4, type="l"))
+                                # plot elevation angle versus time
+legend("right", pch=c(15, 15, 15), col=c(2, 3, 4), bty="n",
+       legend=c("Zenith", "Azimuth", "Elevation"))          # add legends
+```

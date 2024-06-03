@@ -1,0 +1,276 @@
+---
+title: "Modeling Air Temperature of a Time Period"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate diel air temperature of a time period through the function `hourlyT()`.
+
+## Code Example
+
+```{r eval=FALSE}
+# Calculate 2016 Diel Air Temperature of Kellogg Biological Station
+# *****************************************************************
+#
+# Calculate diel air temperature based on the algorithm proposed by Parton and 
+# Logan (1981). Data used in this example is collected in 2016 from Kellogg
+# Biological Station (KBS), Michigan, USA (Zenone et al., 2011, 2013; Abraha et al.
+# , 2015, 2018).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which conains three columns (with table titles)
+#                * column 1: observation date. Required format "dd/mm/yyyy"
+#                * column 2: daily maximum temperature (Celsius or Fahrenheit)
+#                * column 3: daily minimum temperature (Celsius or Fahrenheit)
+# 'hours'       hours of the day
+# 'lng'         longitute of the study site (decimal)
+# 'lat'         latitude of the study site (decimal)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/1-1B Switchgrass Time Series.csv"
+hours <- seq(0, 23.5, 0.5)           # 0.5h, 1h, 1.5h, ..., 23.5h
+lng   <- -85.446758
+lat   <- 42.476708
+
+# Step 3: read data
+dat   <- read.csv(path)              # read the CSV file
+                                     #  * column 1 ($date): observation date
+                                     #  * column 2 ($t_max): maximum temperature
+                                     #  * column 3 ($t_min): minimum temperature
+day   <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[1]))
+                                     # extract day numbers from characters
+month <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[2]))
+                                     # extract month numbers from characters
+year  <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[3]))
+                                     # extract year numbers from characters
+t_max <- dat$t_max                   # extract maximum temperatures
+t_min <- dat$t_min                   # extract minimum temperatures   
+
+# Step 4: run the model
+doys <- DOY(year, month, day)        # calculate day of the year (DOY)
+
+time_sr <- as.numeric(lapply(lapply(doys, sunRS, lng, lat), function(xx) xx[1]))
+                                      # calculate sunrise time
+time_ss <- as.numeric(lapply(lapply(doys, sunRS, lng, lat), function(xx) xx[2]))
+                                      # calculate sunset time
+
+res <- do.call(rbind,lapply(1:nrow(dat), function(i){
+    t_a <- hourlyT(hours, t_max[i], t_min[i], time_sr[i], time_ss[i],
+                    alpha = 1.5, beta = 4, gamma = 1)
+    data.frame(
+      date    = rep(paste0(day[i],"/",month[i],"/",year[i]), length(hours)),
+      time_sr = rep(time_sr[i], length(hours)),
+      time_ss = rep(time_ss[i], length(hours)),
+      hours   = hours,
+      t_a     = t_a
+    )
+}))                                   # compute hourly air temperature
+
+# Step 4: show and visualize results
+# show first parts of the results
+print(head(res))
+
+# plot air temperature versus time
+plot(
+  x = (1:length(res$t_a))/length(hours), 
+  y = res$t_a,
+  type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Predicted air temperature",
+  main = "2016 Annual Temperatures of Kellogg Biological Station"
+)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. There should be three columns in this file:
+
+    -   Column 1: Observation date. The format should be 'dd/mm/yyyy', where 'dd' refers to day, 'mm' refers to month and 'yyyy' refers to the year number.
+
+    -   Column 2: daily maximum temperature (Celsius or Fahrenheit).
+
+    -   Column 3: daily minimum temperature (Celsius or Fahrenheit)
+
+-   `hours`: Hours of the day used for calculating air temperature. The provided example calculates air temperature in half-hour time resolution. Thus, we assigns time series (0h, 0.5h, 1h, ..., 23.5h) to the variable hours through the function `seq`.
+
+-   `lng`: Longitude of the study site (in decimal). The provided example focuses on the air temperature at 85.446758^o^E.
+
+-   `lat`: Latitude of the study site (in decimal). The provided example focuses on the air temperature at 42.476708^o^S.
+
+```{r comment=""}
+path  <- "./data/1-1B Switchgrass Time Series.csv"
+hours <- seq(0, 23.5, 0.5)
+lng   <- -85.446758
+lat   <- 42.476708
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat <- read.csv(path)
+head(dat)  #print first parts of the data
+```
+
+Then the day, month, and year are extracted from date list through the function `strsplit()`.
+
+```{r comment=""}
+day   <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[1]))
+                                     # extract day numbers from characters
+month <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[2]))
+                                     # extract month numbers from characters
+year  <- as.numeric(lapply(strsplit(dat$date,"/"),function(xx) xx[3]))
+                                     # extract year numbers from characters
+
+cat(
+  "Dates:",head(dat$date),"...\n",
+  "************Extract day, month, and year numbers************\n",
+  "Days:",head(day),"...\n",
+  "Months:",head(month),"...\n",
+  "Years:",head(year),"...\n"
+)
+```
+
+Daily maximum and minimum temperatures can also be extracted from `dat`.
+
+```{r comment=""}
+t_max <- dat$t_max                   # extract maximum temperatures
+t_min <- dat$t_min                   # extract minimum temperatures  
+
+cat(
+  "Dates:",head(dat$date),"...\n",
+  "T_{max}:",round(head(t_max),2),"...\n",
+  "T_{min}:",round(head(t_min),2),"...\n"
+)
+```
+
+**Step4:** Run the model. The first step is to calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doys <- DOY(year, month, day)
+
+cat(
+  "Dates:", head(dat$date),"...\n",
+  "DOYs:", head(doys),"...\n"
+)
+```
+
+Sunrise time (Time~sr~, hour) and sunset time (Time~ss~, hour) are then calculated through the function `sunRS()` (see Section 1.4 for theoretical formulations):
+
+```{r comment=""}
+time_sr <- as.numeric(lapply(lapply(doys, sunRS, lng, lat), function(xx) xx[1]))
+                                      # calculate sunrise time
+time_ss <- as.numeric(lapply(lapply(doys, sunRS, lng, lat), function(xx) xx[2]))
+                                      # calculate sunset time
+
+cat(
+  paste0("Longitude = ",lng, ", Latitude = ",lat,"\n"),
+  "Date:", head(dat$date),"...\n",
+  "Sunrise Time:", round(head(time_sr),3),"... (hour)\n",
+  "Sunset Time:", round(head(time_ss),3),"... (hour)\n"
+)
+```
+
+A model proposed by Parton and Logan (1981) is then used to calculate air temperature. Air temperature $T_a$ between sunrise (plus an time lag $\gamma$ for $T_{min}$) and sunset is calculated as:
+
+$$T_a=(T_{max}-T_{min})·\sin\left( \frac{\pi·m}{D_L+2\alpha}\right)+T_{min},\quad(2)$$where *m* is the number of hours after $T_{min}$ occurs, $D_L$ is the day length (hour), and $\alpha$ is the lag coefficient for $T_{max}$. The day length can be calculated from geographic positions and DOY (see Section 1.4). For nighttime air temperature, the following function is used:
+
+$$T_a=T_{min}+(T_{sr}-T_{min})·e^{-\beta·\frac nZ},\quad(3)$$where $T_{sr}$ is the temperature at sunrise, $\beta$ is the nighttime temperature coefficient, $n$ is the number of hours after the sunset, and $Z$ is the night length (hour). $T_{sr}$ can be calculated as:
+
+$$T_{sr}=(T_{max}-T_{min})·\sin\left( \frac{\pi·(D_L-\gamma)}{D_L+2\alpha}\right)+T_{min},\quad(4)$$
+
+where $\gamma$ is the time lag for $T_{min}$. All these work can be done after the function `hourlyT()` is called:
+
+```{r comment=""}
+res <- do.call(rbind, lapply(1:nrow(dat), function(i){
+    t_a <- hourlyT(hours, t_max[i], t_min[i], time_sr[i], time_ss[i],
+                    alpha = 1.5, beta = 4, gamma = 1)
+    data.frame(
+      date    = rep(paste0(day[i],"/",month[i],"/",year[i]), length(hours)),
+      time_sr = rep(time_sr[i], length(hours)),
+      time_ss = rep(time_ss[i], length(hours)),
+      hours   = hours,
+      t_a     = t_a
+    )
+})) 
+
+print(head(res), digits = 3)
+    # 'res': an object of data frame type
+    # each row shows the predicted air temperature at a single time point
+    # for example, the third row shows that the predict air temperature at 
+    #     1:00 a.m. on 01/01/2016 is -3.97 Celsuis
+    #   * Column 1: observation date
+    #   * Column 2: sunrise time
+    #   * Column 3: sunset time
+    #   * Column 4: hours of the day
+    #   * Column 5: predicted air temperature
+```
+
+The arguments and their meaning of `hourlyT()` is shown in the table below:
+
+| Argument  | Data Type | Meaning                                            | Symbol                    |
+|-------------|-------------|-------------------------------|---------------|
+| `hours`   | vector    | time in hours used for calculating air temperature | /                         |
+| `t_max`   | scalar    | maximum air temperature (Celsius or Fahrenheit)    | $T_{max}$                 |
+| `t_min`   | scalar    | minimum air temperature (Celsius or Fahrenheit)    | $T_{min}$                 |
+| `time_sr` | scalar    | sunrise time (hour)                                | $\text{Time}_{\text{sr}}$ |
+| `time_ss` | scalar    | sunset time (hour)                                 | $\text{Time}_{\text{ss}}$ |
+| `alpha`   | scalar    | lag time for $T_{max}$ (hour). Default 1.5.        | $\alpha$                  |
+| `beta`    | scalar    | nighttime temperature coefficient. Default 4.      | $\beta$                   |
+| `gamma`   | scalar    | lag time for $T_{min}$ (hour). Default 1.          | $\gamma$                  |
+
+**Step5:** Save and visualize results. Use the `write.csv()` function to send outputs to a CSV file.
+
+```{r eval=FALSE}
+write.csv(res, 
+          "./data/1-1B Switchgrass Diel Air Temperature Output.csv", 
+          row.names = FALSE)
+```
+
+Create a line plot of predicted air temperature against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  x = (1:length(res$t_a))/length(hours), 
+  y = res$t_a,
+  type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Predicted air temperature",
+  main = "2016 Annual Temperatures of Kellogg Biological Station"
+)
+```
+
+## References
+
+Abraha, M., Chen, J., Chu, H., Zenone, T., John, R., Su, Y. J., Hamilton, S. K., and Robertson, G. P. (2015). Evapotranspiration of annual and perennial biofuel crops in a variable climate. Global Change Biology-Bioenergy, 7(6), 1344--1356.
+
+Abraha, M., Hamilton, S. K., Chen, J., and Robertson, G. P. (2018). Ecosystemcarbon exchange on conversion of Conservation Reserve Program grasslands to annual and perennial cropping systems. Agricultural and Forest Meteorology, 253, 151--160.
+
+Parton, W. J., and Logan, J. A. (1981). A model for diurnal variation in soil and air temperature. Agricultural Meteorology, 23, 205--216.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO~2~ fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.
+
+Zenone, T., Gelfand, I., Chen, J., Hamilton, S. K., and Robertson, G. P. (2013). From set-aside grassland to annual and perennial cellulosic biofuel crops: Effects of land use change on carbon balance. Agricultural and Forest Meteorology, 182, 1--12.
