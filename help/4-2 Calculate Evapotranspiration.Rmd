@@ -1,0 +1,284 @@
+---
+title: "Calculate Evapotranspiration"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate evapotranspiration (ET) using empirical actual ET models.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate ET Using Empirical Actual ET Models
+# ********************************
+#
+# Calculate ET based on various empirical models. Data is from field measurements
+# of micrometeorological variables in 2016 in an agricultural site with an 
+# eddy-covariance tower of the Kellogg Biological Station, Michigan, USA (Zenone et
+# al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'dat'          data set of micrometeorological variables:
+#      * Column 1($month):      month of the year
+#      * Column 2($LAI):        leaf area index
+#      * Column 3($FAO.ETo):    monthly potential evapotranspiration (PET) estimted #                                    by FAO model (mm mo-1)
+#      * Column 4($PET_Hamon):  PET estimated by Hamon's model (mm mo-1)
+#      * Column 5($Priestley.TaylorPET):
+#                               PET estimated by Priestley-Taylor model (mm mo-1)
+#      * Column 6($P):          precipitation (mm mo-1)
+#      * Column 7($VPD):        vapor pressure deficient (kPa)
+#      * Column 8($Rn):         net solar radiation (W m-2)
+#      * Column 9($SWC):        soil water content (%)
+#      * Column 10($Ta):        mean air temperature (Celsius)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/4-2 Calculating ET.csv")
+dat$Rn <- dat$Rn * 30 * 24 * 3600 / 1e6 # unit conversion from W·m-2 to MJ·mo-1·m-2
+
+# Step 3: run the model
+## Method 1
+ET_m1 <- with(dat, m1.ET.Sun(FAO.ETo, LAI, P))
+plot(1:12, ET_m1, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 1)")
+
+## Method 2
+ET_m2 <- with(dat, m2.ET.Sun(HamonPET, LAI, P))
+plot(1:12, ET_m2, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 2)")
+
+## Method 3
+ET_m3 <- with(dat, m3.ET.Fang(HamonPET, VPD, Rn))
+plot(1:12, ET_m3, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 3)")
+
+## Method 4
+print(data.frame(
+  Month = 1:12,
+  ET_shurb = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P,land.type = "shrub")),
+  ET_crop = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "crop")),
+  ET_grass = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, P = P,land.type = "grass")),
+  ET_deciduous = with(dat, m4.ET.type1(Rn = Rn, PET = HamonPET, land.type = "deciduous")),
+  ET_needle = with(dat, m4.ET.type1(Rn = Rn, Ta = Ta, land.type = "needle")),
+  ET_broad = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, Ta = Ta, land.type = "broad")),
+  ET_mixed = with(dat, m4.ET.type1(PET= HamonPET, land.type = "mixed")),
+  ET_savannas = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "savannas"))
+), digits = 3)
+
+## Method 5
+print(data.frame(
+  Month = 1:12,
+  ET_shurb = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, P = P, land.type = "shrub")),
+  ET_crop = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, P = P, land.type = "crop")),
+  ET_grass = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, P = P, land.type = "grass")),
+  ET_deciduous = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, land.type = "deciduous")),
+  ET_broad = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, P = P, land.type = "broad")),
+  ET_mixed = with(dat, m5.ET.type2(PET = HamonPET, land.type = "mixed")),
+  ET_savannas = with(dat, m5.ET.type2(PET = HamonPET, LAI = LAI, P = P, land.type = "savannas"))
+), digits = 3)
+
+## Method 6
+ET_m6 <- with(dat, m6.ET.Zhang(Priestley.TaylorPET, P, w=2))
+plot(1:12, ET_m6, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 6)")
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv`.
+
+```{r comment=""}
+dat <- read.csv("./data/4-2 Calculating ET.csv")
+#      * Column 1($month):      month of the year
+#      * Column 2($LAI):        leaf area index
+#      * Column 3($FAO.ETo):    monthly potential evapotranspiration (PET) estimted #                                    by FAO model (mm mo-1)
+#      * Column 4($PET_Hamon):  PET estimated by Hamon's model (mm mo-1)
+#      * Column 5($Priestley.TaylorPET):
+#                               PET estimated by Priestley-Taylor model (mm mo-1)
+#      * Column 6($P):          precipitation (mm mo-1)
+#      * Column 7($VPD):        vapor pressure deficient (kPa)
+#      * Column 8($Rn):         net solar radiation (W m-2)
+#      * Column 9($SWC):        soil water content (%)
+#      * Column 10($Ta):        mean air temperature (Celsius)
+
+print(dat)
+```
+
+Note that the units of net solar radiation is W m^-2^. Convert the unit into MJ mo^-1^ m^-2^.
+
+```{r comment=""}
+dat$Rn <- dat$Rn * 30 * 24 * 3600 / 1e6
+```
+
+**Step3:** Run the model. The ET model proposed by Sun et al. (2011a) is expressed as:
+
+$$
+ET = 11.94 + 4.76 · LAI + ET_o · (0.032 · LAI + 0.0026 · P + 0.15),\quad(1)
+$$
+
+where $ET_o$ is PET estimated by FAO method (See Section 4-1A), $LAI$ is leaf area index, $P$ is monthly precipitation (mm mo^-1^).
+
+```{r comment=""}
+ET_m1 <- with(dat, m1.ET.Sun(FAO.ETo, LAI, P))
+plot(1:12, ET_m1, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 1)")
+```
+
+Another form of the ET model uses Hamon's PET model (Sun et al. 2011b):
+
+$$ET = 0.174 · P + 0.502 · PET + 5.31 · LAI + 0.0222 · PET · LAI,\quad(2)$$
+
+```{r comment=""}
+ET_m2 <- with(dat, m2.ET.Sun(HamonPET, LAI, P))
+plot(1:12, ET_m2, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 2)")
+```
+
+A further model proposed by Fang et al. (2016) is expressed as:
+
+$$
+ET = 0.42 + 0.74 · PET − 2.73 · VPD + 0.10 · R_n,\quad(3)
+$$
+
+where $PET$ is monthly potential ET (mm) estimated by Hamon's method. VPD (kPa) can be estimated from air temperature and relative humidity (See Section 1-2A, B). $R_n$ is net solar radiation (MJ mo^-1^ m^-2^).
+
+```{r comment=""}
+ET_m3 <- with(dat, m3.ET.Fang(HamonPET, VPD, Rn))
+plot(1:12, ET_m3, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 3)")
+```
+
+Since $R_n$ is rarely available at the regional scale, another model that use precipitation $P$ is expressed as (Fang et al., 2016):
+
+$$
+ET = −4.79 + 0.75 · PET + 3.92 · LAI + 0.04 · P,\quad(4)
+$$
+
+Fang et al. (2016) further developed a collection of empirical ET models, referred as Type Ⅰ and Type Ⅱ, for different types of land covers. Type Ⅰ models are shown in the following table:
+
+| Land cover type              | Model                                                                            |
+|------------------------------|----------------------------------------------------------------------------------|
+| Shrubland                    | $$                                                                               
+                                                                ET = −4.59 + 13.02 · LAI + 0.10·R_n + 0.11 · P    
+                                                                $$                                                |
+| Cropland                     | $$                                                                               
+                                                                ET = 0.87 + 0.19 · R_n + 13.99·LAI + 0.06 · P     
+                                                                $$                                                |
+| Grassland                    | $$                                                                               
+                                                                ET = −0.87 + 0.20 · R_n + 0.10·P + 0.24 · SWC     
+                                                                $$                                                |
+| Deciduous forest             | $$                                                                               
+                                                                ET = −14.22+0.74·PET+0.1·R_n                      
+                                                                $$                                                |
+| Evergreen needle leaf forest | $$                                                                               
+                                                                ET = 13.47 + 0.10 · R_n + 1.35 · T_a              
+                                                                $$                                                |
+| Evergreen broad leaf forest  | $$                                                                               
+                                                                ET = 0.01+0.63·T_a+0.46·SWC+0.14 · R_n            
+                                                                $$                                                |
+| Mixed forest                 | $$                                                                               
+                                                                ET = −8.76 + 0.95 · PET                           
+                                                                $$                                                |
+| Savannas                     | $$                                                                               
+                                                                ET = −8.07 + 33.46 · LAI + 0.07·R_n               
+                                                                $$                                                |
+
+where $T_a$ is the monthly mean air temperature (^o^C), $SWC$ is soil water content (%).
+
+```{r comment=""}
+print(data.frame(
+  Month = 1:12,
+  ET_shurb = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P,land.type = "shrub")),
+  ET_crop = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "crop")),
+  ET_grass = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, P = P,land.type = "grass")),
+  ET_deciduous = with(dat, m4.ET.type1(Rn = Rn, PET = HamonPET, land.type = "deciduous")),
+  ET_needle = with(dat, m4.ET.type1(Rn = Rn, Ta = Ta, land.type = "needle")),
+  ET_broad = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, Ta = Ta, land.type = "broad")),
+  ET_mixed = with(dat, m4.ET.type1(PET= HamonPET, land.type = "mixed")),
+  ET_savannas = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "savannas"))
+), digits = 3)
+```
+
+Type Ⅱ models are shown in the following table:
+
+| Land cover type              | Model                                                                           |
+|------------------------------|---------------------------------------------------------------------------------|
+| Shrubland                    | $$                                                                              
+                                                                ET = −3.11 + 0.39 ·PET+ 0.09·P + 11.127 · LAI    
+                                                                $$                                               |
+| Cropland                     | $$                                                                              
+                                                                ET = −8.15 + 0.86 ·PET+ 0.01·P + 9.54 · LAI      
+                                                                $$                                               |
+| Grassland                    | $$                                                                              
+                                                                ET =−1.36 + 0.70 · PET + 0.04·P + 6.56 · LAI     
+                                                                $$                                               |
+| Deciduous forest             | $$                                                                              
+                                                                ET = −14.82+0.98·PET+2.72·LAI                    
+                                                                $$                                               |
+| Evergreen needle leaf forest | $$                                                                              
+                                                                ET = 0.10 + 0.64 · PET + 0.04·P + 3.53 · LAI     
+                                                                $$                                               |
+| Evergreen broad leaf forest  | $$                                                                              
+                                                                ET = 7.71 + 0.74 · PET + 1.85·LAI                
+                                                                $$                                               |
+| Mixed forest                 | $$                                                                              
+                                                                ET = −8.763 + 0.95 · PET                         
+                                                                $$                                               |
+| Savannas                     | $$                                                                              
+                                                                ET = −5.66 + 0.18 ·PET+ 0.10·P + 44.63 · LAI     
+                                                                $$                                               |
+
+```{r comment=""}
+print(data.frame(
+  Month = 1:12,
+  ET_shurb = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P,land.type = "shrub")),
+  ET_crop = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "crop")),
+  ET_grass = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, P = P,land.type = "grass")),
+  ET_deciduous = with(dat, m4.ET.type1(Rn = Rn, PET = HamonPET, land.type = "deciduous")),
+  ET_needle = with(dat, m4.ET.type1(Rn = Rn, Ta = Ta, land.type = "needle")),
+  ET_broad = with(dat, m4.ET.type1(Rn = Rn, SWC = SWC, Ta = Ta, land.type = "broad")),
+  ET_mixed = with(dat, m4.ET.type1(PET= HamonPET, land.type = "mixed")),
+  ET_savannas = with(dat, m4.ET.type1(Rn = Rn, LAI = LAI, P = P, land.type = "savannas"))
+), digits = 3)
+```
+
+Zhang et al. (2001) developed a simple two-parameter ET model that can be used for examining the long-term average effect of vegetation changes on catchment ET:
+
+$$
+ET=P·\frac{1+w·\frac{PET}P}{1+w·\frac{PET}P+\frac{P}{PET}},\quad(5)
+$$
+
+where $w$ is the plant-available water coefficient that represents the relative difference in plant water use for transpiration. $PET$ is potential ET estimated by Priestley-Taylor model (See Section 4-1F). The best fitted w values for forest and grassland are 2.0 and 0.5, respectively.
+
+```{r comment=""}
+ET_m6 <- with(dat, m6.ET.Zhang(Priestley.TaylorPET, P, w=2))
+  # argument 'w' is used to specify plant-available water coefficient
+plot(1:12, ET_m6, type = "l", xlab = "Month", ylab = "ET",
+     main = "ET estimates (Method 6)")
+```
+
+## References
+
+Fang, Y., Sun, G., Caldwell, P., McNulty, S. G., Noormets, A., Domec, J. C., King, J., Zhang, Z., Zhang, X., Lin, G., Zhou, G., Xiao, J., Chen, J., and Zhou, G. (2016). Monthly land cover-specific evapotranspiration models derived from global eddy flux measurements and remote sensing data. Ecohydrology, 9(2), 248--266.
+
+Sun, G., Alstad, K., Chen, J., Chen, S., Ford, C. R., Lin, G., Liu, C., Lu, N., McNulty, S. G., Miao, H., Noormets, A., Vose, J. M., Wilske, B., Zeppel, M., Zhang, Y., and Zhang, Z. (2011a). A general predictive model for estimating monthly ecosystem evapotranspiration. Ecohydrology, 4(2), 245--255.
+
+Sun, G., Caldwell, P., Noormets, A., McNulty, S. G., Cohen, E., Moore Myers, J. M., Domec, J-C., Treasure, E., Mu, Q., Xiao, J., John, R., and Chen, J. (2011b). Upscaling key ecosystem functions across the conterminous United States by a watercentric ecosystem model. Journal of Geophysical Research: Biogeosciences, 116(G3), <https://doi.org/10.1029/2010JG001573.>
+
+Zhang, L., Dawes, W. R., and Walker, G. R. (2001). Response of mean annual evapotranspiration to vegetation changes at catchment scale. Water Resources Research, 37(3), 701--708

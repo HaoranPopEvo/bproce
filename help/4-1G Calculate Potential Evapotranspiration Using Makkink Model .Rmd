@@ -1,0 +1,159 @@
+---
+title: "Calculate Potential Evapotranspiration Using Makkink Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using Makkink model.
+
+```{r eval=FALSE}
+# Calculate PET Using Makkink Model
+# ********************************
+#
+# Calculate PET based on Makkink Model (Makkink, 1957). Data is from field
+# measurements of micrometeorological variables in 2016 in an agricultural site
+# with an eddy-covariance tower of the Kellogg Biological Station, Michigan, USA
+# (Zenone et al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'      daily mean air temperature (Celsius)
+# 'Rs'       (incoming) solar radiation (W m-2)
+# 'EL'       elevation (m)
+# 'PET'      daily potential evapotranspiration (mm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+t_a <- dat$Ta       # daily mean air temperature
+Rs  <- dat$Rn * 24 * 3600/1e6
+                    # (incoming) solar radiation (convert W m-2 to MJ m-2 d-1)
+                    #   NOTE: use net solar radiation as a proxy
+EL  <- 288          # elevation
+
+# Step 3: run the model
+PET <- m7.PET.Makkink(t_a, EL, Rs)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, EL, Rs, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Makkink Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv` and specify longitude and latitude of the study site.
+
+```{r comment=""}
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in Priestley-Taylor model from variable `dat`.
+
+```{r comment=""}
+t_a <- dat$Ta       # daily mean air temperature
+Rs  <- dat$Rn * 24 * 3600/1e6
+                    # (incoming) solar radiation (convert W m-2 to MJ m-2 d-1)
+                    #   NOTE: use net solar radiation as a proxy
+EL  <- 288          # elevation
+```
+
+Note that the factor `24 * 3600/1e6` is required for unit conversion from W m^-2^ to MJ m^-2^ d^-1^.
+
+**Step3:** Run the model. The Priestley-Taylor PET model (Priestley and Taylor, 1972) is expressed as:
+
+$$
+\lambda\text{PET}=0.61\frac{\Delta}{\Delta+\gamma}\frac{R_s}{58.5}-0.12,\quad(1)
+$$
+
+where:
+
+-   $\text{PET}$ = daily PET (mm d^-1^)
+
+-   $\lambda$ = latent heat of vaporization (MJ kg^-1^), $\lambda=2.501-0.002361·T$
+
+-   $\Delta$ = slope of the saturation vapor pressure-temperature curve (kPa ◦C^-1^)
+
+$$
+\Delta = 0.100·(0.00738·T+0.8072)^7-0.000116,\quad(2)
+$$
+
+-   $\gamma$ = psychrometric constant modified by the ratio of canopy resistance to atmospheric resistance (kPa ◦C^-1^), $\gamma=c_pP/(0.622·\lambda)$
+
+-   $c_p$ = specific heat of moist air at constant pressure (0.001013 MJ kg^−1^ ◦C^−1^)
+
+-   $P$ = atmospheric pressure (kPa), $P=101.3-0.01055·EL$
+
+-   $EL$ = elevation (m)
+
+-   $R_s$ = (incoming) solar radiation (MJ m^−2^ d^−1^)
+
+```{r comment=""}
+PET <- m7.PET.Makkink(t_a, EL, Rs)
+
+print(head(data.frame(
+  t_a, EL, Rs, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Makkink Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Makkink, G. F. (1957). Testing the Penman formula by means of lysimeters. Journal of the Institution of Water Engineerrs, 11, 277--288.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO2 fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

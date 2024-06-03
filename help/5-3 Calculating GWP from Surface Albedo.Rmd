@@ -1,0 +1,96 @@
+---
+title: "Calculate GWP from Surface Albedo"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate global warming potential (GWP) from surface albedo.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate GWP from Surface Albedo
+# ********************************
+#
+# Calculate GWP from surface albedo change.
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'Sw_up'         reflected light (W m-2)
+# 'Sw_down'       total incident sunlight (W m-2)
+# 'alpha_REF'    	surface albedo of the reference site (unitless)
+# 'Ta'            upwelling transmittance value (unitless)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: Choose parameters
+Sw_up     <- 134
+Sw_down   <- 478
+alpha_REF <- 0.172
+Ta        <- 0.854
+
+# Step 3: Run the model
+GWP.albedo(Sw_up, Sw_down, alpha_REF, Ta)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `Sw_up`: Reflected light (W m^-2^). The provided example uses 134 W m^-2^.
+
+-   `Sw_down`: Total incident sunlight (W m^-2^). The provided example uses 478 W m^-2^.
+
+-   `alpha_REF`: Surface albedo of the reference site. The provided example uses 0.172.
+
+-   `Ta`: Upwelling transmittance value (See Section 5-2 for how to calculate). The provided example uses 0.854.
+
+```{r comment=""}
+Sw_up     <- 134
+Sw_down   <- 478
+alpha_REF <- 0.172
+Ta        <- 0.854
+```
+
+**Step3:** Run the model. Albedo is defined as the ratio of reflected light ($Sw_↑$, W m^-2^) to the total incident sunlight ($Sw_↓$↑$, W m^-2^) for a given area of land surface. GWP from surface albedo can be calculated as:
+
+$$
+\text{GWP}=\frac{\Delta\text{RF}_{\text{TOA}}}{\text{AF}_{\text{CO}_2}·\text{mRF}_{\text{CO}_2}}·\frac 1 {\text{TH}},\quad(1)
+$$
+
+where $\text{AF}_{\text{CO}_2}$ is the percentage of emitted CO~2~ that can be calculated from impulse response function (IRF, See Section 5-1), $\text{TH}$ is the time horizon for 100 years ($\text{TH} = 100$), $\text{mRF}_{\text{CO}_2}$ is marginal radiative forcing of CO~2~ (a constant, W m^-1^), $\Delta{RF}_{\text{TOA}}$ is the radiative forcing from changes in albedo (W m^-1^), which can be calculated via IRD (equation (2)) or AGWP (equation (3)) method:
+
+$$
+\Delta\text{RF}_{\text{TOA}}=-\frac1NT_a·\text{RF}_{\Delta\alpha},\quad(2)
+$$
+
+$$
+\Delta\text{RF}_{\text{TOA}}=-\frac1N\frac{T_a·\text{RF}_{\Delta\alpha}}{S_{\text{Earth}}},\quad(3)
+$$
+
+where $N$ is the number of days (or hours), $T_a$ is the upwelling transmittance value (See Section 5-2 for calculation), $S_{\text{Earth}}$ is the surface area of the earth, $\text{RF}_{\Delta\alpha}$ is the change in net radiative forcing from the surface driven by surface albedo (W m^-1^), which is can be calculated as:
+
+$$
+\text{EF}_{\Delta\alpha}=-Sw_↓\Delta\alpha_s,\quad(4)
+$$
+
+where $Sw_↓$ is local incoming solar radiation incident to the surface (W m^-2^), $\Delta\alpha_s$ is change in albedo , defined by the difference between the albedo value of the target ecosystem and the reference site.
+
+```{r comment=""}
+gwp <- GWP.albedo(Sw_up, Sw_down, alpha_REF, Ta)
+cat("GWP (relative to carbon dioxide) from surface albedo =", round(gwp, 3), "\n")
+```

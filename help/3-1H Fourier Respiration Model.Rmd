@@ -1,0 +1,226 @@
+---
+title: "Fit Fourier Respiration Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to fit Fourier model through the function `respir.fit()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Fit Fourier Respiration Model
+# ********************************
+#
+# Fit Fourier model (Davidson et al., 2006) from field measurements of soil
+# temperature at 5cm, soil moisture at 10 cm, and soil respiration, at a larch
+# forest in Mt. Fuji in 2015. Data provided by Dr. Naishen Liang (Email: 
+# liang@nies.go.jp)
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which contains four columns (with table titles)
+#                * column 1(time):   a character representing observed time
+#                * column 2(t_s):    soil temperature (Celsius)
+#                * column 3(theta):  soil water content (%). Valid from 0-100
+#                * column 4(Rs):     ecosystem respiration (µmol CO2 m−2 s−1)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/3-1 Soil Respiration Measurements in Mt. Fuji.csv"
+
+# Step 3: read data
+dat   <- read.csv(path) # read the CSV file
+                  #  * column 1 ($time): a character representing observed time
+                  #  * column 2 ($t_s): temperature (Celsius)
+                  #  * column 3 ($theta): soil water content (%). Valid from 0-100
+                  #  * column 4 ($Rs): ecosystem respiration (µmol CO2 m−2 s−1)
+
+date_char <- as.character(lapply(strsplit(dat$time," "),function(xx) xx[1]))
+                  # extract dates from 'dat'
+days   <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[1]))
+                  # extract day number
+months <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[2]))
+                  # extract month number
+years  <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[3]))
+                  # extract year number
+doys   <- DOY(years, months, days)  # calculate day of the year (DOY)
+
+# Step 4: fit the model
+md <- respir.fit(dat$Rs, doy = doys, method = "d.fourier") # fit the model
+
+cat(              # summarize the result
+  paste("***** Fourier Model *****\n"),
+  paste("kappa0 = ", round(md$coef[["kappa0"]], 3), "\n"),
+  paste("kappa1 =", round(md$coef[["kappa1"]], 3), "\n"),
+  paste("fai1 =", round(md$coef[["fai1"]], 3), "\n"),
+  paste("kappa2 =", round(md$coef[["kappa2"]], 3), "\n"),
+  paste("fai2 =", round(md$coef[["fai2"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md$adj.r.squared, 3), "\n")
+)
+
+# Step 5: model prediction
+doy <- doys
+kappa0 <- md$coef[["kappa0"]]      # extract model parameter
+kappa1 <- md$coef[["kappa1"]]      # extract model parameter
+kappa2 <- md$coef[["kappa2"]]      # extract model parameter
+fai1   <- md$coef[["fai1"]] 
+fai2   <- md$coef[["fai2"]] 
+R <- eval(parse(text = md$formula))   # make predictions
+                                      # results are stored in the variable 'R'
+smoothScatter(
+  doys, dat$Rs,
+  xlab = "Day of the year",
+  ylab = "Soil Respiration",
+  main = "Fit Fourier Model"
+)                                 # soil respiration versus DOY
+lines(doys, R)
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. The sample file "3-1 Soil Respiration Measurements in Mt. Fuji.csv" contains four columns:
+
+    -   Column 1 (`$time`): A character representing observed time. The format is 'dd/mm/yyyy hh:mm', where 'dd' refers to day, 'mm' refers to month, and 'yyyy' refers to the year number. 'hh' refers to hour and 'mm' refers to minute. However, this column will not be used in this example.
+
+    -   Column 2 (`$t_s`): Soil temperature measured at 5cm (Celsius). However, this column will not be used in this example.
+
+    -   Column 3 (`$theta`): Soil water content (%). Valid from 0--100. However, this column will not be used in this example.
+
+    -   Column (`$Rs`): Measured soil respiration (µmol CO~2~ m^−2^ s^−1^).
+
+```{r comment=""}
+path  <- "./data/3-1 Soil Respiration Measurements in Mt. Fuji.csv"
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat   <- read.csv(path) # read the CSV file
+                  #  * column 1 ($time): a character representing observed time
+                  #  * column 2 ($t_s): temperature (Celsius)
+                  #  * column 3 ($theta): soil water content (%). Valid from 0-100
+                  #  * column 4 ($Rs): ecosystem respiration (µmol CO2 m−2 s−1)
+
+head(dat)         #print first parts of the data
+```
+
+The first column is character strings specifying the observed time. Extract the day, month, and year numbers from the strong using the following code:
+
+```{r comment=""}
+date_char <- as.character(lapply(strsplit(dat$time," "),function(xx) xx[1]))
+                  # extract dates from 'dat'
+days   <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[1]))
+                  # extract day number
+months <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[2]))
+                  # extract month number
+years  <- as.numeric(lapply(strsplit(date_char,"/"), function(xx) xx[3]))
+                  # extract year number
+
+print(head(data.frame(
+  Date = date_char,      # date string
+  Day_Number = days,     # day number
+  Month_Number= months,  # month number
+  Year_Number = years    # year number
+)), digits = 3)
+```
+
+Calculate day of the year (DOY) using the following equation:
+
+$$
+\text{DOY}=\left[ \frac{275\text{month}}{9} \right]-\left[\frac{\text{month}+9}{12}\right]·
+\left(\left[ \frac{\text{year}-4\text[\text{year}/4]+2}{3} \right]+1\right)+\text{day}-30,\quad(1)
+$$
+
+```{r comment=""}
+doys   <- DOY(years, months, days)  # calculate day of the year (DOY)
+
+print(head(data.frame(
+  Date = date_char,      # date string
+  Day_Number = days,     # day number
+  Month_Number= months,  # month number
+  Year_Number = years,   # year number
+  DOY = doys             # day of the year
+)), digits = 3)
+```
+
+**Step4:** Fit the model. Soil respiration ($R_s$, µmol CO~2~ m^−2^ s^−1^) can be modeled as a function of DOY, using a second-order Fourier regression::
+
+$$
+R=\kappa_0+\kappa_1·\sin(DOY^*+\varphi_1)+\kappa_2·\sin(2·DOY^*+\varphi_2),\quad(11)
+$$
+
+where $DOY^*=DOY·(2*\pi/365)$. To fit Fourier model, use option `"d.fourier"`. It takes time.
+
+```{r comment=""}
+md <- respir.fit(dat$Rs, doy = doys, method = "d.fourier") # fit the model
+```
+
+Now summarize the model fit:
+
+```{r comment=""}
+cat(              # summarize the result
+  paste("***** Fourier Model *****\n"),
+  paste("kappa0 = ", round(md$coef[["kappa0"]], 3), "\n"),
+  paste("kappa1 =", round(md$coef[["kappa1"]], 3), "\n"),
+  paste("fai1 =", round(md$coef[["fai1"]], 3), "\n"),
+  paste("kappa2 =", round(md$coef[["kappa2"]], 3), "\n"),
+  paste("fai2 =", round(md$coef[["fai2"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md$adj.r.squared, 3), "\n")
+)
+```
+
+**Step5:** Model prediction. Predict $R_s$ using the fitted model:
+
+```{r comment=""}
+doy <- doys
+kappa0 <- md$coef[["kappa0"]]      # extract model parameter
+kappa1 <- md$coef[["kappa1"]]      # extract model parameter
+kappa2 <- md$coef[["kappa2"]]      # extract model parameter
+fai1   <- md$coef[["fai1"]] 
+fai2   <- md$coef[["fai2"]] 
+R <- eval(parse(text = md$formula))   # make predictions
+                                      # results are stored in the variable 'R'
+
+print(head(data.frame(
+  doy = doys,
+  Predicted_Rs = R
+)), digits = 3)
+```
+
+Create a plot of $R_s$ against $t_s$ to compare observed and predicted values:
+
+```{r comment=""}
+smoothScatter(
+  doys, dat$Rs,
+  xlab = "Day of the year",
+  ylab = "Soil Respiration",
+  main = "Fit Fourier Model"
+)                                 # soil respiration versus DOY
+lines(doys, R)
+```
+
+Function `smoothScatter` creates a high density scatter plot. The areas colored bright blue are those with the highest concentration of observed points, whilst the solid curve represents the fitted curve. It can be seen that Fourier model gives a good fit to the field measurements.
+
+## Reference
+
+Davidson, E. A., Janssens, I. A., and Luo, Y. (2006). On the variability of respiration in terrestrial ecosystems: Moving beyond Q10. Global Change Biology, 12(2), 154--164.

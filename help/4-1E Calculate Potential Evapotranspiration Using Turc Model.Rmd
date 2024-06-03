@@ -1,0 +1,149 @@
+---
+title: "Calculate Potential Evapotranspiration Using Turc Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using Turc model.
+
+```{r eval=FALSE}
+# Calculate PET Using Turc Model
+# ********************************
+#
+# Calculate PET based on Turc Model (Turc, 1961). Data is from field
+# measurements of micrometeorological variables in 2016 in an agricultural site
+# with an eddy-covariance tower of the Kellogg Biological Station, Michigan, USA
+# (Zenone et al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'      daily mean air temperature (Celsius)
+# 'h'        relative humidity in percentage (%)
+# 'Rs'       incoming solar radiation (MJ m-2 d-1)
+# 'PET'      daily potential evapotranspiration (mm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+t_a <- dat$Ta       # daily mean air temperature
+h   <- dat$h * 100  # relative humidity in percentage (%)
+Rs  <- dat$Rn * 24 * 3600/1e6
+                    # incoming solar radiation (convert W m-2 to MJ m-2 d-1)
+                    #    NOTE: use net solar radiation as a proxy
+
+# Step 3: run the model
+PET <- m5.PET.Turc(t_a, h, Rs)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, h, Rs, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Turc Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv` and specify longitude and latitude of the study site.
+
+```{r comment=""}
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in Turc model from variable `dat`.
+
+```{r comment=""}
+t_a <- dat$Ta       # daily mean air temperature
+h   <- dat$h * 100  # relative humidity in percentage (%)
+Rs  <- dat$Rn * 24 * 3600/1e6
+                    # incoming solar radiation (convert W m-2 to MJ m-2 d-1)
+                    #    NOTE: use net solar radiation as a proxy
+```
+
+**Step3:** Run the model. When relative humidity ($h$) is \< 50%, Turc PET model (Turc, 1961) is express as:
+
+$$
+\text{PET}=0.013\left(\frac{T}{T+15}\right)(R_s+50)\left(1+\frac{50-h}{70}\right),\quad(1)
+$$
+
+when $h$ \> 50%,
+
+$$
+\text{PET}=0.013\left(\frac{T}{T+15}\right)(R_s+50),\quad(2)
+$$
+
+where:
+
+-   $T$ = daily mean air temperature (^o^C)
+
+-   $R_s$ = daily solar radiation (ly d^−1^, or cal cm^−2^ d^−1^). However, the unit will automatically be converted into MJ m^−2^ d^−1^ through the function `m5.PET.Turc`
+
+-   $h$ = daily mean relative humidity in percentage (%)
+
+```{r comment=""}
+PET <- m5.PET.Turc(t_a, h, Rs)
+
+print(head(data.frame(
+  t_a, h, Rs, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Turc Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Turc, L. (1961). Estimation of irrigation water requirements, potential evapotranspiration: A simple climatic formula evolved up to date. Annuals of Agronomy, 12(1), 13--49.
+
+Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO2 fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

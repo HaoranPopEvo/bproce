@@ -1,0 +1,293 @@
+---
+title: "Fit Biophysically Constrained Models"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to fit biophysically constrained models from measured soil temperature and moisture through the function `respir.fit()`.
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Fit Biophysically Constrained Models
+# ********************************
+#
+# Fit biophysically constrained models from field measurements of soil
+# temperature at 5cm, soil moisture at 10 cm, and soil respiration, at a larch
+# forest in Mt. Fuji in 2015. Data provided by Dr. Naishen Liang (Email: 
+# liang@nies.go.jp)
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'path'        path of a CSV file, which contains four columns (with table titles)
+#                * column 1(time):   a character representing observed time
+#                * column 2(t_s):    soil temperature (Celsius)
+#                * column 3(theta):  soil water content (%). Valid from 0-100
+#                * column 4(Rs):     ecosystem respiration (µmol CO2 m−2 s−1)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: choose parameters
+path  <- "./data/3-1 Soil Respiration Measurements in Mt. Fuji.csv"
+
+# Step 3: read data
+dat   <- read.csv(path) # read the CSV file
+                  #  * column 1 ($time): a character representing observed time
+                  #  * column 2 ($t_s): temperature (Celsius)
+                  #  * column 3 ($theta): soil water content (%). Valid from 0-100
+                  #  * column 4 ($Rs): ecosystem respiration (µmol CO2 m−2 s−1)
+
+# Step 4: fit the model
+md1 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm1.DeForest")
+                  #  Model 1 (DeForest et al., 2006)
+md2 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm2.Xu")
+                  #  Model 2 (Xu et al., 2011)
+md3 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm3.Concilio")
+                  #  Model 3 (Concilio et al., 2005)
+
+cat(              # result of Model 1 (DeForest et al., 2006)
+  paste("***** DeForest et al. (2006) *****\n"),
+  paste("R10 =", round(md1$coef[["R10"]], 3), "\n"),
+  paste("beta =", round(md1$coef[["beta"]], 3), "\n"),
+  paste("a =", round(md1$coef[["a"]], 3), "\n"),
+  paste("b =", round(md1$coef[["b"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md1$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md1$adj.r.squared, 3), "\n")
+)
+
+cat(              # result of Model 2 (Xu et al., 2011)
+  paste("***** Xu et al. (2011) *****\n"),
+  paste("alpha * beta1 = ", round(md2$coef[["alpha_plus_beta1"]], 3), "\n"),
+  paste("beta0 =", round(md2$coef[["beta0"]], 3), "\n"),
+  paste("beta2 =", round(md2$coef[["beta2"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md2$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md2$adj.r.squared, 3), "\n")
+)
+
+cat(              # result of Model 3 (Concilio et al., 2005)
+  paste("***** Concilio et al. (2005) *****\n"),
+  paste("R0 * beta2 = ", round(exp(md3$coef[["log(R0)+log(beta2)"]]), 3), "\n"),
+  paste("beta0 =", round(md3$coef[["beta0"]], 3), "\n"),
+  paste("beta1 =", round(md3$coef[["beta1"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md3$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md3$adj.r.squared, 3), "\n")
+)
+
+# Step 5: model prediction
+ta  <- dat$t_s                    # soil temperature
+m   <- dat$theta                  # soil water content
+
+## Model 1 (DeForest et al., 2006) 
+R10  <- md1$coef[["R10"]]         # extract model parameter
+beta <- md1$coef[["beta"]]        # extract model parameter
+a    <- md1$coef[["a"]]           # extract model parameter
+b    <- md1$coef[["b"]]           # extract model parameter
+eval(parse(text = md1$formula))   # make predictions
+Rs_Deforest <- R                  # results are stored in the variable 'R'
+
+alpha  <- md2$coef[["alpha_plus_beta1"]] # extract model parameter
+beta0  <- md2$coef[["beta0"]]            # extract model parameter
+beta1  <- 1
+beta2  <- md2$coef[["beta2"]]            # extract model parameter
+eval(parse(text = md2$formula))          # make predictions
+Rs_Xu  <- R                              # results are stored in the variable 'R'
+
+R0     <- exp(md3$coef[["log(R0)+log(beta2)"]])
+                                         # extract model parameter
+beta0  <- md3$coef[["beta0"]]            # extract model parameter
+beta1  <- md3$coef[["beta1"]]            # extract model parameter
+eval(parse(text = md3$formula))          # make predictions
+Rs_Concilio  <- R                        # results are stored in the variable 'R'
+
+plot(dat$Rs - Rs_Deforest, pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Deforest's Model")  # Residue plot for Model 1
+
+plot(dat$Rs - Rs_Xu, pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Xu's Model")        # Residue plot for Model 2
+
+plot(dat$Rs - Rs_Concilio, pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Concilio's Model")  # Residue plot for Model 3
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Choose model parameters.
+
+-   `path`: the path of a CSV file which the data are to be read from. Each row of the file appears as one line, and columns are separated by commas (,). The first row appears as the table title. The sample file "3-1 Soil Respiration Measurements in Mt. Fuji.csv" contains four columns:
+
+    -   Column 1 (`$time`): A character representing observed time. The format is 'dd/mm/yyyy hh:mm', where 'dd' refers to day, 'mm' refers to month, and 'yyyy' refers to the year number. 'hh' refers to hour and 'mm' refers to minute. However, this column will not be used in this example.
+
+    -   Column 2 (`$t_s`): Soil temperature measured at 5cm (Celsius).
+
+    -   Column 3 (`$theta`): Soil water content (%). Valid from 0--100.
+
+    -   Column (`$Rs`): Measured soil respiration (µmol CO~2~ m^−2^ s^−1^).
+
+```{r comment=""}
+path  <- "./data/3-1 Soil Respiration Measurements in Mt. Fuji.csv"
+```
+
+**Step3:** Read data. Read the CSV file in table format and creates a data frame through the function `read.csv()`.
+
+```{r comment=""}
+dat   <- read.csv(path) # read the CSV file
+                  #  * column 1 ($time): a character representing observed time
+                  #  * column 2 ($t_s): temperature (Celsius)
+                  #  * column 3 ($theta): soil water content (%). Valid from 0-100
+                  #  * column 4 ($Rs): ecosystem respiration (µmol CO2 m−2 s−1)
+
+head(dat)         #print first parts of the data
+```
+
+**Step4:** Fit the model. Soil respiration ($R_s$, µmol CO~2~ m^−2^ s^−1^) can be modeled as a function of soil temperature ($T$, ^o^C) and soil water content ($\theta$, 0--100%) simultaneously (DeForest et al., 2006):
+
+$$
+R=(R_{10}·e^{\beta·T})+(a·\theta+b),\quad(1)
+$$
+
+where $R_{10}$, $a$, $b$ are model parameters. $a$ and $b$ were empirically estimated from the residuals after the exponential term.
+
+```{r comment=""}
+md1 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm1.DeForest")
+```
+
+Now summarize the model fit:
+
+```{r comment=""}
+cat(              # result of Model 1 (DeForest et al., 2006)
+  paste("***** DeForest et al. (2006) *****\n"),
+  paste("R10 =", round(md1$coef[["R10"]], 3), "\n"),
+  paste("beta =", round(md1$coef[["beta"]], 3), "\n"),
+  paste("a =", round(md1$coef[["a"]], 3), "\n"),
+  paste("b =", round(md1$coef[["b"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md1$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md1$adj.r.squared, 3), "\n")
+)
+```
+
+A second model is proposed by Xu et al. (2011), which is expressed as:
+
+$$
+R=\alpha·e^{\beta_0·T}·\beta_1·(\theta-\beta_2)^2,\quad(2)
+$$
+
+```{r comment=""}
+md2 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm2.Xu")
+
+cat(              # result of Model 2 (Xu et al., 2011)
+  paste("***** Xu et al. (2011) *****\n"),
+  paste("alpha * beta1 = ", round(md2$coef[["alpha_plus_beta1"]], 3), "\n"),
+  paste("beta0 =", round(md2$coef[["beta0"]], 3), "\n"),
+  paste("beta2 =", round(md2$coef[["beta2"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md2$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md2$adj.r.squared, 3), "\n")
+)
+```
+
+Note that `alpha_plus_beta1` corresponds to the product of $\alpha$ and $\beta_1$ in equation (2). Concilio et al. (2005) adopted a slightly different model:
+
+$$
+R=R_0·e^{\beta_0·T}·e^{\beta_1·\theta}·\beta_2·T·\theta,\quad(3)
+$$
+
+```{r comment=""}
+md3 <- respir.fit(dat$Rs, dat$t_s, dat$theta, method = "tm3.Concilio")
+
+cat(              # result of Model 3 (Concilio et al., 2005)
+  paste("***** Concilio et al. (2005) *****\n"),
+  paste("R0 * beta2 = ", round(exp(md3$coef[["log(R0)+log(beta2)"]]), 3), "\n"),
+  paste("beta0 =", round(md3$coef[["beta0"]], 3), "\n"),
+  paste("beta1 =", round(md3$coef[["beta1"]], 3), "\n"),
+  paste("Multiple R-squared:", round(md3$r.squared, 3), "\n"),
+  paste("Adjusted R-squared:", round(md3$adj.r.squared, 3), "\n")
+)
+```
+
+where `log(R0)+log(beta2)` is the logarithm of $R_0·\beta_2$ in equation (3).
+
+**Step5:** Model prediction. Predict $R_s$ using the fitted model:
+
+```{r comment=""}
+ta  <- dat$t_s                    # soil temperature
+m   <- dat$theta                  # soil water content
+
+## Model 1 (DeForest et al., 2006) 
+R10  <- md1$coef[["R10"]]         # extract model parameter
+beta <- md1$coef[["beta"]]        # extract model parameter
+a    <- md1$coef[["a"]]           # extract model parameter
+b    <- md1$coef[["b"]]           # extract model parameter
+eval(parse(text = md1$formula))   # make predictions
+Rs_Deforest <- R                  # results are stored in the variable 'R'
+
+alpha  <- md2$coef[["alpha_plus_beta1"]] # extract model parameter
+beta0  <- md2$coef[["beta0"]]            # extract model parameter
+beta1  <- 1
+beta2  <- md2$coef[["beta2"]]            # extract model parameter
+eval(parse(text = md2$formula))          # make predictions
+Rs_Xu  <- R                              # results are stored in the variable 'R'
+
+R0     <- exp(md3$coef[["log(R0)+log(beta2)"]])
+                                         # extract model parameter
+beta0  <- md3$coef[["beta0"]]            # extract model parameter
+beta1  <- md3$coef[["beta1"]]            # extract model parameter
+eval(parse(text = md3$formula))          # make predictions
+Rs_Concilio  <- R                        # results are stored in the variable 'R'
+
+print(head(data.frame(
+  t_s = dat$t_s, theta = dat$theta, 
+  Rs_Deforest = Rs_Deforest, Rs_Xu = Rs_Xu, Rs_Concilio = Rs_Concilio
+)), digits = 3)
+```
+
+Create a residue plot of fitted model:
+
+```{r comment=""}
+plot(dat$Rs - Rs_Deforest , pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Deforest's Model")  # Residue plot for Model 1
+```
+
+The residue is defined as the difference between the observed and predicted value. Positive values means that the model overestimates the soil respiration, whilst negative values indicate underestimation. It can be seen that the residues given by DeForest's model are pretty symmetrically distributed towards the line at 0, which indicates that this model gives a good fit for field measurements.
+
+However, this is not the case for Xu's model:
+
+```{r comment=""}
+plot(dat$Rs - Rs_Xu, pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Xu's Model")        # Residue plot for Model 2
+```
+
+The plot indicates that this model seriously underestimates the soil respiration, although it delivers a high R^2^. For Concilio's model:
+
+```{r comment=""}
+plot(dat$Rs - Rs_Concilio, pch = 19, cex=0.5, xaxt = "n",
+     xlab = "Observation", ylab = "Residue",
+     main = "Residue Plot for Concilio's Model")  # Residue plot for Model 3
+```
+
+We can see that the residues are generally symmetrically distributed towards the line at 0. However, considering that this model only gives an R^2^ of 0.162, we can argue that the field measurement data in Mt. Fuji does not fit to this model.
+
+## Reference
+
+Concilio, A., Ma, S., Li, Q., LeMoine, J., Chen, J., North, M., Moorhead, D., and Jensen, R. (2005). Soil respiration response to prescribed burning and thinning in mixed-conifer and hardwood forests. Canadian Journal of Forest Research, 35(7), 1581--1591.
+
+DeForest, J. L., Noormets, A., McNulty, S. G., Sun, G., Tenney, G., and Chen, J. (2006). Phenophases alter the soil respiration-temperature relationship in an oak-dominated forest. International Journal of Biometeorology, 51(2), 135--144.
+
+Xu, M., and Qi, Y. (2001). Soil-surface CO2 efflux and its spatial and temporal variations in a young ponderosa pine plantation in northern California. Global Change Biology, 7(6), 667--677.

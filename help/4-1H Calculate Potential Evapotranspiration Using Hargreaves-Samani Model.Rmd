@@ -1,0 +1,160 @@
+---
+title: "Calculate Potential Evapotranspiration Using Hargreaves-Samani Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using Hargreaves-Samani model.
+
+```{r eval=FALSE}
+# Calculate PET Using Hargreaves-Samani Model
+# ********************************
+#
+# Calculate PET based on Hargreaves-Samani Model  (Priestley and Taylor， 1972).
+# Data is from field measurements of micrometeorological variables in 2016 in an
+# agricultural site with an eddy-covariance tower of the Kellogg Biological
+# Station, Michigan, USA (Zenone et al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'      daily mean air temperature (Celsius)
+# 't_max'    daily maximum air temperature (Celsius)
+# 't_min'    daily minimum air temperature (Celsius)
+# 'Ra'       extraterrestrial radiation (MJ m-2 d-1)
+# 'PET'      daily potential evapotranspiration (mm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/1-1B Switchgrass Time Series.csv")
+              # load monthly micrometeorological data set
+              #   * column 1($date): observation date. Required format "dd/mm/yyyy"
+              #   * column 2($t_max): daily maximum temperature (Celsius)
+              #   * column 3($t_min: daily minimum temperature (Celsius)
+lat <- 42.476708   # latitude of the site
+
+t_max <- dat$t_max             # daily maximum air temperature (Celsius)
+t_min <- dat$t_min             # daily minimum air temperature (Celsius)
+t_a   <- (t_max + t_min)/2     # daily mean air temperature (Celsius)
+
+## modeling extraterrestrial radiation
+day   <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[1]))
+              # extract the day number
+month <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[2]))
+              # extract the month number
+year  <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[1]))
+              # extract the year number
+doys  <- DOY(year, month, day) # calculate day of the year
+Ra    <- ra(lat, doys)         # calculate extraterrestrial radiation
+
+# Step 3: run the model
+PET <- m8.PET.HargreavesSamani(t_a, t_max, t_min, Ra)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, t_max, t_min, Ra, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  doys, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Hargreaves-Samani Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv` and specify latitude of the study site.
+
+```{r comment=""}
+dat <- read.csv("./data/1-1B Switchgrass Time Series.csv")
+              # load monthly micrometeorological data set
+              #   * column 1($date): observation date. Required format "dd/mm/yyyy"
+              #   * column 2($t_max): daily maximum temperature (Celsius)
+              #   * column 3($t_min: daily minimum temperature (Celsius)
+lat <- 42.476708   # latitude of the site
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in Hargreaves-Samani model from variable `dat`.
+
+```{r comment=""}
+t_max <- dat$t_max             # daily maximum air temperature (Celsius)
+t_min <- dat$t_min             # daily minimum air temperature (Celsius)
+t_a   <- (t_max + t_min)/2     # daily mean air temperature (Celsius)
+```
+
+Another variable required in Hargreaves-Samani is extraterrestrial radiation ($R_n$, MJ m^-2^ d^-1^). Although not measured in the provided data set, it can be calculated from latitude and day of the year (DOY). For more details, see Section 1-3.
+
+```{r comment=""}
+day   <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[1]))
+              # extract the day number
+month <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[2]))
+              # extract the month number
+year  <- as.numeric(lapply(strsplit(dat$date,"/"), function(xx) xx[1]))
+              # extract the year number
+doys  <- DOY(year, month, day) # calculate day of the year
+Ra    <- ra(lat, doys)         # calculate extraterrestrial radiation
+
+print(head(data.frame(DOY = doys, Ra = Ra)), digits = 3)
+```
+
+**Step3:** Run the model. The Hargreaves-Samani PET model (Hargreaves and Samani, 1982) is expressed as:
+
+$$
+\lambda·\text{PET}=0.0023·R_a·TD^{0.5}·(T+17.8),\quad(1)
+$$
+
+where:
+
+-   $\text{PET}$ = daily PET (mm d^-1^)
+
+-   $\lambda$ = latent heat of vaporization (MJ kg^-1^), $\lambda=2.501-0.002361·T$
+
+-   $T$ = daily mean air temperature (^o^C)
+
+-   $R_a$ = extraterrestrial solar radiation (MJ m^−2^ d^−1^)
+
+-   $\text{TD}$ = daily differecnce between the maximum and minimum air temperature (^o^C)
+
+```{r comment=""}
+PET <- m8.PET.HargreavesSamani(t_a, t_max, t_min, Ra)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, t_max, t_min, Ra, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  doys, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Hargreaves-Samani Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Hargreaves, G. H., and Samani, Z. A. (1982). Estimating potential evapotranspiration. Journal of the Irrigation and Drainage Division, 108(3), 225--230.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO2 fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

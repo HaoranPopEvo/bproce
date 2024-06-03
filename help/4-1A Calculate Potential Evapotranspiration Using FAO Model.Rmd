@@ -1,0 +1,172 @@
+---
+title: "Calculate Potential Evapotranspiration Using FAO Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using FAO Penman-Monteith model.
+
+```{r eval=FALSE}
+# Calculate PET Using FAO Penman-Monteith Model
+# ********************************
+#
+# Calculate PET based on FAO Penman-Monteith Model (Allen et al. 1994). Data is
+# from field measurements of micrometeorological variables in 2016 in an
+# agricultural site with an eddy-covariance tower of the Kellogg Biological Station
+# , Michigan, USA (Zenone et al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'      daily mean air temperature (Celsius)
+# 'vpd'      vapor pressure deficient (kPa)
+# 'Rn'       net solar radiation (W m-2)
+# 'u2'       wind speed at 2m height (m s-1)
+# 'G'        soil heat flux (W m-2)
+# 'EL'       altitude above sea level (m)
+# 'PET'      daily potential evapotranspiration (mm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+t_a <- dat$Ta       # daily mean air temperature
+vpd <- dat$VPD      # vapor pressure deficient
+Rn  <- dat$Rn * 24 * 3600/1e6
+                    # net solar radiation (convert W m-2 to MJ m-2 d-1)
+u2  <- dat$wnd_spd  # wind speed at 2m height
+G   <- dat$G * 24 * 3600/1e6
+                    # soil heat flux  (convert W m-2 to MJ m-2 d-1)
+EL  <- 288          # altitude
+
+# Step 3: run the model
+PET <- m1.PET.FAO(t_a, vpd, Rn, u2, G, EL)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, vpd, Rn, u2, G, EL, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by FAO Penman-Monteith Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv`:
+
+```{r comment=""}
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     month of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in FAO Penman-Monteith Model from variable `dat`.
+
+```{r comment=""}
+t_a <- dat$Ta       # daily mean air temperature
+vpd <- dat$VPD      # vapor pressure deficient
+Rn  <- dat$Rn * 24 * 3600/1e6
+                    # net solar radiation (convert W m-2 to MJ m-2 d-1)
+u2  <- dat$wnd_spd  # wind speed at 2m height
+G   <- dat$G * 24 * 3600/1e6
+                    # soil heat flux  (convert W m-2 to MJ m-2 d-1)
+EL  <- 288          # altitude
+```
+
+Note that the factor `24 * 3600/1e6` is required for unit conversion from W m^-2^ to MJ m^-2^ d^-1^.
+
+**Step3:** Run the model. Using process-based Penman-Monteith equation, PET can be modeled as (Allen et al., 1994):
+
+$$
+\text{ET}_o=\frac{0.408·\Delta·(R_n-G)+\gamma·\frac{C_n}{T+237.3}·u_2·VPD}{\Delta+\gamma·(1+C_d·\mu_2)},\quad(1)
+$$
+
+where:
+
+-   $\text{ET}_o$ = grass reference ET (mm) as a replacement of PET
+
+-   $\Delta$ = slope of the saturation water vapor pressure at air temperature (T, kPa ^o^C^−1^)
+
+$$
+\Delta = 2503\frac{e^\frac{17.27·T}{T+237.3}}{(T+237.3)^2},quad(2)
+$$
+
+-   $R_n$ = net solar radiation (MJ m^-2^)
+
+-   $G$ = soil heat flux (MJ m^-2^)
+
+-   $\gamma$ = psychrometric constant (kPa ^o^C^−1^)
+
+-   $VPD$ = vapor pressure deficient (kPa)
+
+-   $\mu_2$ = wind speed (m s^−1^) at 2 m height
+
+-   $C_n$ = numerator constant that changes with reference surface and calculation time step (900^o^C mm s^-3^ Mg^−1^ d^−1^ for 24 h time steps, and 37900^o^C mm s^-3^ Mg^−1^ d^−1^ for hourly time steps)
+
+-   $C_d$ = denominator constant that changes with reference surface and calculation steps (0.34 s m^−1^ for 24 h time steps, 0.24 s m^−1^ for hourly time steps during daytime, and 0.96 s m^−1^ for hourly nighttime for grass reference surface) (Djaman et al. 2018).
+
+```{r comment=""}
+PET <- m1.PET.FAO(t_a, vpd, Rn, u2, G, EL, Cn = 900, Cd = 0.34)
+
+print(head(data.frame(
+  t_a, vpd, Rn, u2, G, EL, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by FAO Penman-Monteith Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Allen, R. G., Smith, M., Perrier, A., and Pereira, L. S. (1994). An update for the definition of reference evapotranspiration. International Commission on Irrigation and Drainage Bulletin, 43(2), 1--34.
+
+Djaman, K., Koudahe, K., Lombard, K., and O'Neill, M. (2018). Sum of hourly vs daily Penman--Monteith grass-reference evapotranspiration under semiarid and arid climate. Irrigation and Drainage Engineering, 7(1), doi: 10.4172/2168-9768.1000202.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO2 fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

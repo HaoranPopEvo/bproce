@@ -1,0 +1,158 @@
+---
+title: "Calculate Potential Evapotranspiration Using Hamon's Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using Hamon's model.
+
+```{r eval=FALSE}
+# Calculate PET Using Hamon's Model
+# ********************************
+#
+# Calculate PET based on Hamon's Model (Hamon, 1963). Data is from field
+# measurements of micrometeorological variables in 2016 in an agricultural site
+# with an eddy-covariance tower of the Kellogg Biological Station, Michigan, USA
+# (Zenone et al. 2011).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 'long'     longtitude of the site (in decimal)
+# 'lat'      latitude of the site (in decimal)
+# 't_a'      daily mean air temperature (Celsius)
+# 'Ld'       day length (h)
+# 'PET'      daily potential evapotranspiration (mm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     day of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+long <- -85.446758  # longitutde of the site
+lat  <- 42.476708   # latitude of the site
+
+t_a <- dat$Ta       # daily mean air temperature
+Ld  <- as.numeric(lapply(dat$Day,function(doy) diff(sunRS(doy, long, lat))))/12
+                    # day length (h)
+
+# Step 3: run the model
+PET <- m3.PET.Hamon(t_a, Ld)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, Ld, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Hamon's Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv` and specify longitude and latitude of the study site.
+
+```{r comment=""}
+dat <- read.csv("./data/4-1A Daily Micrometeorological Measurements of Kellogg Biological Station.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Day):     month of the year
+              #     Column 2 ($ET):      evapotranspiration (ET, W m-2)
+              #     Column 3 ($wnd_spd): wind speed (m s-1)
+              #     Column 4 ($Rn):      net solar radiation (W m-2)
+              #     Column 5 ($VPD):     vapor pressure deficient (kPa)
+              #     Column 6 ($Ta):      daily mean air temperature (Celsius)
+              #     Column 7 ($h):       relative humidity (0-1)
+              #     Column 8 ($VWC):     variable water content (0-1)
+              #     Column 9 ($G):       soil heat flux (W m-2)
+long <- -85.446758  # longitutde of the site
+lat  <- 42.476708   # latitude of the site
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in Hamon's model (Hamon, 1963) from variable `dat`.
+
+```{r comment=""}
+t_a <- dat$Ta       # daily mean air temperature
+Ld  <- as.numeric(lapply(dat$Day,function(doy) diff(sunRS(doy, long, lat))))/12
+                    # day length (h)
+```
+
+Day length is calculated through the function `sunRS`. For more details, see Section 1-4A, B. Note that factor 12 is required for unit conversion from multiples of 12h to hour.
+
+**Step3:** Run the model. Hamon's PET model (Hamon, 1963) is express as:
+
+$$
+\text{PET}=0.1651·DAY·\frac{216.7·e_s}{t_a+273.3},\quad(1)
+$$
+
+where:
+
+-   $e_s=6.108·e^{\frac{17.2694·t_a}{t_a+237.3}}$
+
+-   $DAY = 2×\text{acos}(-1×\tan(\Phi×0.0175))×\tan(0.4093×\sin(\frac{2×3.1415×DOY}{365}-1.405))/3.14159$
+
+where
+
+-   $\text {PET}$ = daily potenital
+
+-   $DAY$ = day length in multiples of 12 hours calculated from latitude and Julian day
+
+-   $e_s$ = saturation vapor pressure at a given temperature (mb)
+
+-   $t_a$ = mean air temperature (^o^C)
+
+-   $DOY$ = Julian day of the year ranging between 1 and 366
+
+-   $\Phi$ = the latitude of the site
+
+```{r comment=""}
+PET <- m3.PET.Hamon(t_a, Ld)
+
+print(head(data.frame(
+  t_a, Ld, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  dat$Day, PET, type = "l", 
+  xlab = "Day of the year", 
+  ylab = "Daily PET",
+  main = "PET Estimated by Hamon's Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Hamon, W. R. (1963). Computation of direct runoff amounts from storm rainfall. International Association of Scientific Hydrology Publication, 63, 52--62.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO2 fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.

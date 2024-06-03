@@ -1,0 +1,98 @@
+---
+title: "Calculate GWP of Greenhouse Gases"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate global warming potential (GWP) of greenhouse gases (GHGs).
+
+## Code Example(s)
+
+```{r eval=FALSE}
+# Calculate GWP of GHGs
+# ********************************
+#
+# Calculate absolute (AGWP, W m-2 kg-1 yr) and relative GWP of three GHGs, namely
+# carbon dioxide (CO2), methane (CH4), and nitrous oxide (N2O) for a period of time
+#
+# ********************************
+require(bproce)
+
+AGWP.CO2()                # AGWP of CO2 for 100 years
+AGWP.CO2(TH = 20)         # AGWP of CO2 for 20 years
+
+AGWP.CH4()                # AGWP of CH4 for 100 years
+AGWP.CH4(TH = 20)         # AGWP of CH4 for 20 years
+AGWP.CH4()/AGWP.CO2()     # GWP of CH4 for 100 years
+
+AGWP.N2O()                # AGWP N2O for 100 years
+AGWP.N2O(TH = 20)         # AGWP N2O for 20 years
+AGWP.N2O()/AGWP.CO2()     # GWP N2O for 100 years
+```
+
+## Explanation
+
+First we load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+The AGWP (W m^-2^ kg^-1^ yr) of a GHG pulse is calculates by integrating the radiative forcing (RF) due to GHG pulses over a time horizon:
+
+$$
+\text{AGWP}_x(\text{TH})=\int_0^\text{TH}\text{IRF}_x(t)·\text{mRF}_x/S,\quad(1)
+$$
+
+where $\text{TH}$ is the chosen time horizon (e.g. 20, 100, 500 years), $\text{mRF}$ is the marginal radiative forcing of a GHG species (a constant, W kg^-1^), $S$ is the surface area of the earth (m^2^), $\text{IRF}_x(t)$ is the impulse response function. For carbon dioxide (CO~2~), it is expressed as (IPCC, 2013, Skytt et al., 2020):
+
+$$
+\text{IRF}_{\text{CO}_2}(t)=0.2173+0.2240·\exp(\frac{-t}{394.4})+0.2824·\exp(\frac{-t}{36.54})+0.2763·\exp(\frac{-t}{4.304}),\quad(2)
+$$
+
+```{r comment=""}
+cat(paste0(
+  "AGWP of CO2 for 100 years = ", AGWP.CO2(), "\n",
+  "AGWP of CO2 for 20 years = ", AGWP.CO2(TH = 20), "\n"
+))
+```
+
+For methane (CH~4~) and nitrous oxide (N~2~O) , it is expressed as (IPCC, 2013):
+
+$$
+\text{IRF}_x(t)=\exp(-\frac{t}{\tau_x}),\quad(3)
+$$
+
+```{r comment=""}
+cat(paste0(
+  "AGWP of CH4 for 100 years = ", AGWP.CH4() , "\n",
+  "AGWP of CH4 for 20 years = ", AGWP.CH4(TH = 20), "\n\n",
+  "AGWP of N2O for 100 years = ", AGWP.N2O() , "\n",
+  "AGWP of N2O for 20 years = ", AGWP.N2O(TH = 20), "\n"
+))
+```
+
+The relative GWP, or simply GWP, is defined as the AGWP of a GHG species divided by the AGWP of CO~2~.
+
+$$
+\text{GWP}_x(\text{TH})=\frac{\text{AGWP}_x(\text{TH})}{\text{AGWP}_{\text{CO}_2}(\text{TH})},\quad(3)
+$$
+
+```{r comment=""}
+cat(paste0(
+  "GWP of CH3 for 100 years = ", round(AGWP.CH4()/AGWP.CO2(), 2), "\n",
+  "GWP of N2O for 100 years = ", round(AGWP.N2O()/AGWP.CO2(), 2), "\n"
+))
+```
+
+## References
+
+IPCC (2013). Climate change 2013: The physical science basis. Contribution of Working Group I to the Fifth Assessment Report of the Intergovernmental Panel on Climate Change [Stocker, T.F., Qin, D. Plattner, G.-K., Tignor, M., Allen, S.K., Boschung, J., Nauels, A., Xia, Y., Bex V., & Midgley P. M. (eds.)]. Cambridge University Press, Cambridge, United Kingdom and New York, NY, USA, 1535 pp.
+
+Skytt, T., Nielsen, S. N., and Jonsson, B. G. (2020). Global warming potential and absolute global temperature change potential from carbon dioxide and methane fluxes as indicators of regional sustainability---a case study of Jämtland, Sweden. Ecological Indicators, 110, 105831.
+

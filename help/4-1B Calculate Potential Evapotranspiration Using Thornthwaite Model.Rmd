@@ -1,0 +1,131 @@
+---
+title: "Calculate Potential Evapotranspiration Using Thornthwaite Model"
+author: "Hao-Ran Wu ( haoranwu @ zju.edu.cn )"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this section we are concerned about how to calculate potential evapotranspiration (PET) using Thornthwaite model.
+
+```{r eval=FALSE}
+# Calculate PET Using Thornthwaite Model
+# ********************************
+#
+# Calculate PET based on Thornthwaite Model (Thornthwaite, 1948).
+#
+# ********************************
+# List of variables and units for this example
+#
+# 't_a'      monthly mean air temperature (Celsius)
+# 'Ld'       monthly mean day length (h)
+# 'PET'      monthly potential evapotranspiration (cm)
+#
+# ********************************
+# Step 1: import package
+require(bproce)
+
+# Step 2: read data
+dat   <- read.csv("./data/4-1B Simulated Monthly Micrometeorological Varibles.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Month):   month of the year
+              #     Column 2 ($Ta):      monthly mean air temperature (Celsius)
+              #     Column 3 ($Ld):      monthly mean day length (h)
+
+t_a  <- dat$Ta         # monthly mean air temperature
+Ld   <- dat$Ld/12      # monthly mean daytime length
+
+# Step 3: run the model
+PET <- m2.PET.Thornthwaite(t_a, Ld)
+
+# Step 4: present and visualize results
+print(head(data.frame(
+  t_a, Ld, PET
+)), digits = 3)     # summarize the result
+
+plot(
+  1:12, PET, type = "l", 
+  xlab = "Month of the year", 
+  ylab = "Monthly PET",
+  main = "PET Estimated by Thornthwaite Model"
+)                   # plot PET versus time
+```
+
+## Explanation
+
+**Step1:** Load the package `bproce` through the `require()` function.
+
+```{r message=FALSE}
+require(bproce)
+```
+
+**Step2:** Read data. Import the sample file through the function `read.csv`:
+
+```{r comment=""}
+dat   <- read.csv("./data/4-1B Simulated Monthly Micrometeorological Varibles.csv")
+              # load monthly micrometeorological data set
+              #     Column 1 ($Month):   month of the year
+              #     Column 2 ($Ta):      monthly mean air temperature (Celsius)
+              #     Column 3 ($Ld):      monthly mean day length (h)
+
+head(dat)
+```
+
+Extract micrometeorological variables that are required in Thornthwaite Model from variable `dat`.
+
+```{r comment=""}
+t_a  <- dat$Ta         # monthly mean air temperature
+Ld   <- dat$Ld/12      # monthly mean daytime length
+```
+
+Note that factor 12 is required for unit conversion from multiples of 12h to hour.
+
+**Step3:** Run the model. The Thornthwaite (1948) PET model is expressed as:
+
+$$
+\text{PET}=1.6·L_d·\left( \frac{10·T}{I}\right)^a,\quad(1)
+$$
+
+where:
+
+-   $\text{PET}$ = monthly PET (cm)
+
+-   $L_d$ = monthly mean daytime length in multiples of 12h
+
+-   $a = 6.75 × 10{-7}·I^3−7.71×10^{−5}·I^2+0.01792·I+0.49239$
+
+-   $I$ = annual heat index, which is computed from the monthly heat indices
+
+$$
+I = \sum_{j=1}^{12}i_j,\quad(2)
+$$
+
+where $i_j=\left(\frac{T_j}5\right)^{1.514}$ , $T_j$ is the mean air temperature (^o^C) per month.
+
+```{r comment=""}
+PET <- m2.PET.Thornthwaite(t_a, Ld)
+
+print(head(data.frame(
+  t_a, Ld, PET
+)), digits = 3)     # summarize the result
+```
+
+**Step4:** Visualize results. Create a line plot of predicted PET against time through the function `plot()`:
+
+```{r comment=""}
+plot(
+  1:12, PET, type = "l", 
+  xlab = "Month of the year", 
+  ylab = "Monthly PET",
+  main = "PET Estimated by Thornthwaite Model"
+)                   # plot PET versus time
+```
+
+## References
+
+Thornthwaite, C. W. (1948). An approach toward a Rational classification of climate. Geographical Review, 38(1), 55--94.
+
+Zenone, T., Chen, J., Deal, M. W., Wilske, B., Jasrotia, P., Xu, J., Bhardwaj, A. K., Hamilton, S. K., and Robertson, G. P. (2011). CO~2~ fluxes of transitional bioenergy crops: Effect of land conversion during the first year of cultivation. Global Change Biology-Bioenergy, 3(5), 401--412.
