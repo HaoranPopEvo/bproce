@@ -1,0 +1,21 @@
+Package: bproce
+Title: Modeling Biophysical Processes
+Version: 0.0.0.9000
+Authors@R: 
+    person("Hao-Ran", "Wu", , "haoranwu@zju.edu.cn", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-9449-6112"))
+Description: Calculate sets of biophysical variables based on different types of models. The main reference of this package is Biophysical Models and Applications in Ecosystem Analysis by Jiquan Chen.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Lazydata: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+Imports: 
+    stats
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

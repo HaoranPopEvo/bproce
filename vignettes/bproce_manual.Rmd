@@ -1,0 +1,360 @@
+---
+title: "bproce manual"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{bproce manual}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(bproce)
+```
+
+# 1 Quick-start examples
+
+Package `bpproce` provides sets of functions to modeling biophysical processes, ranging from photosynthesis, respiration, evapotranspiration, and global warming potentials. It can also help to calculate input variables of these models, such as temperature, vapor pressure, and solar radiation.
+
+Here is a simple example:
+
+```{r}
+require(bproce)
+
+#Step1: input data 
+data("p1_tah")          #temperature and relative humidity
+lati <- 42.47670833     #latitude in degree
+ah <- 9.5               #actual daylight time (from sunrise to sunset)
+
+#Step2: calculate input variables
+##2.1 solar radiation
+doy <- DOY(2016, 9, 22) #day of the year
+Ra <- ra(lati, doy)     #extraterrestrial solar radiation
+Rs <- rs(lati, doy, ah) #incoming solar radiation (measured value is recommended)
+Rn <- with(p1_tah, rn.m1(mean(Ta), max(Ta), min(Ta), Rs, Ra))
+                        #net solar radiation
+
+##2.2 vapor pressure deficient
+vpd <- with(p1_tah, vpdeficit(Ta, h))
+
+#Step3: use biophysical models
+daily_PET <- m3.PET.Hamon(mean(p1_tah$Ta), ah/12) 
+                        #daily potential evapotranspiration
+monthly_PET <- daily_PET * 30
+monthly_ET <-m3.ET.Fang(monthly_PET, mean(vpd), Rn)
+                        #monthly evapotranspiration
+
+cat("The monthly evapotranspiration is:", monthly_ET,"(MJ m-2 d-1)")
+```
+
+In this example, we see that functions in `bproce` simply handle with objects of the `vector` class, rather than that with complex structures. This is intuitive when calculating biophysical variables and modeling a series of processes.
+
+The first step is to format your data using several objects of the `vector` class. Next, calculate sets of input variables that are required in biophysical models. These variables might include: day of the year (function `DOY`), solar radiation (function `rs`, `ra`, `rso`, `rnl`, `rns`, `rn.m1`,and `rn.m2`), vapor pressure (function `actualvp`), vapor pressure deficient (function `vpdeficit`), zenith angle (function `zangle`), soil heat flux (function `heatflux`), wind speed (function `windspeed`), etc. The final step is to model biophysical processes using measured or calculated biophysical variables. The above example use Hamon's model to calculate potential evapotranspiration based on daily averaged temperature and daylight time, and then transform potential evapotranspiration to evapotranspiration with extra input variables of vapor pressure deficient and net solar radiation.
+
+It may be hard to list all variables and functions that are needed to model a biophysical process. See Chapter 3 and search for the biophysical process you want to model in the cheatsheet. You will find all variables needed and functions to be used.
+
+But what sets of biophysical models are included in package `bproce`? Chapter 2 describes the overall structure of the functions in `bproce`, from which you will see what processes can be modeled.
+
+# 2 Overview
+
+`bproce` allows you to: (1) calculate variables required in biophysical models; (2) model photosynthesis process; (3) model respiration process; (4) model evapotranspiration process; (5) model global warming potential. It follows the order in the book *Biophysical Models and Applications in Ecosystem Analysis* (Chen, 2021).
+
+-   For purpose 1: variables that can be calculated in `bproce` include day of the year, Julian day of the year, daylight time, sunrise time, sunset time, zenith angle, azimuth angle, temperature, dew point temperature, wet-bulb temperature, vapor pressure, vapor pressure deficient, daily net solar radiation, daily extraterrestrial radiation, daily incoming solar radiation, daily short wave radiation, daily net shortwave radiation, daily net longwave radiation, soil heat flux, soil heat storage, wind speed, and upwelling transmittance value.
+
+-   For purpose 2: models for photosynthesis are used to predict ecosystem production based on sets of variables. Available models are: Michaelis-Menten's model, Landsberg's model, Farquhar's model, and Ball-Berry model. You can fit these models based on observed data and then make predictions.
+
+-   For purpose 3: respiration process is modeled using empirical equations, ranging from the most commonly used log-linear equations, to complex biophysically constrained models. `respir.fit` is the only function for this purpose. It is used to fit various respiration models.
+
+-   For purpose 4: models for evapotranspiration (ET). In most of cases, you should first calculate potential evapotranspiration (PET), and then derive ET based on PET. Methods for calculating PET include Penman-Monteith model, Thornthwaite model, Hamon's model, Blaney-Criddle model, Turc's model, Priestley-Taylor model, Makkink model, Hargreaves-Samani model. Functions to calculate PET has a prefix like `m1.PET`, `m2.PET`, etc. ET is modeled by empirical equations. Functions to calculate ET has a prefix of `m1.ET`, `m2.ET`, etc.
+
+-   For purpose 5: models for calculating global warming potentials (GWP). GWP is caused by greenhouse gases (GHGs) and albedo change. Functions to calculate absolute global warming potential (AGWP) for a given GHG has a prefix of `AGWP`. GWP (or relative GWP) value caused by albedo change can be calculated by the function `GWP.albedo`.
+
+# 3 Cheatsheet
+
+In Chapter 2, you have already know what processes `bproce` can model. This chapter can be used to check what variables to be measured and functions to be used for each biophysical process.
+
+## 3.1 Physical Variables
+
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| Variable                             | Function        | Depend variables                        | Measured variables                                                                 |
++======================================+=================+=========================================+====================================================================================+
+| day of the year                      | `DOY`           | None                                    | `year`, `month`, `day`                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| Julian day of the year               | `JDo`           | None                                    | `year`, `month`, `day`                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| hourly temperature                   | `diurnalT`      | day of the year (`DOY`)                 | `maxt`: daily maximum temperature                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `mint`: daily minimum temperature                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `latitude`: latitude of the site                                                   |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| saturation vapor pressure            | `satvp`         | None                                    | `Ta`: temperature                                                                  |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| saturation vapor density             | `satvd`         | None                                    | `Ta`: temperature                                                                  |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| actual vapor density                 | `actualvd`      | None                                    | `Ta`: temperature                                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `h`: relative humidity                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| actual vapor pressure                | `actualvp`      | None                                    | `Ta`: temperature                                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `h`: relative humidity                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| vapor pressure deficit               | `vpdeficit`     | None                                    | `Ta`: temperature                                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `h`: relative humidity                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| dew point temperature                | `dewT`          | None                                    | `Ta`: temperature                                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `h`: relative humidity                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| wet-bulb temperature                 | `wetbulbT`      | None                                    | `Ta`: temperature                                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `h`: relative humidity                                                             |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily extraterrestrial radiation     | `ra`            | day of the year (`DOY`)                 | `lati`: latitude of the site                                                       |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| maximum daylight hours               | `dh`            | day of the year (`DOY`)                 | `lati`: latitude of the site                                                       |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily (incoming) solar radiation     | `rs`            | day of the year (`DOY`)                 | `lati`: latitude of the site                                                       |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `ah`: actual daylight hours                                                        |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily short wave radiation           | `rso`           | day of the year (`DOY`)                 | `lati`: latitude of the site                                                       |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `tau`: clear sky transmissivity                                                    |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `EL`: elevation                                                                    |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily net shortwave radiation        | `rns`           | None                                    | `Rs`: daily (incoming) solar radiation (alternatively calculated by function `rs`) |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `albedo`: albedo or canopy reflection coefficient                                  |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily net longwave radiation         | `rnl`           | daily short wave radiation (`rso`)      | `Rs`: daily (incoming) solar radiation (alternatively calculated by function `rs`) |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 | actual vapor pressure (`actualvp`)      | `tmax`: daily maximum temperature                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `tmin`: daily minimum temperature                                                  |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| daily net radiation                  | `rn.m1`         | daily extraterrestrial radiation (`ra`) | `Rs`: daily (incoming) solar radiation (alternatively calculated by function `rs`) |
+|                                      |                 |                                         |                                                                                    |
+|                                      | or              | or                                      | `ta`: daily mean temperature                                                       |
+|                                      |                 |                                         |                                                                                    |
+|                                      | `rn.m2`         | daily net shortwave radiation (`rns`)   | `tmax`: daily maximum temperature                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 | daily net longwave radiation (`rnl`)    | `tmin`: daily minimum temperature                                                  |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | or                                                                                 |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | None                                                                               |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| sunrise and sunset time              | `sunRS`         | day of the year (`DOY`)                 | `long`: longitude of the site                                                      |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `lat`: latitude of the site                                                        |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| zenith, azimuth, and elevation angle | `zangle`        | None                                    | `year`, `month`, `day`                                                             |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `long`: longitude of the site                                                      |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `lat`: latitude of the site                                                        |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| soil heat flux density               | `heatflux`      | None                                    | `detT`: temperature difference between the top and the bottom of the soil layer    |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `d`: thickness of the soil layer                                                   |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| soil heat storage                    | `heatstore`     | None                                    | `detT`: temperature difference between the top and the bottom of the soil layer    |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `dettime`: period of time                                                          |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 |                                         | `theta`: soil water content                                                        |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| wind speed at 2 meters               | `windspeed`     | None                                    | `uz`: wind speed measured at `z` meters                                            |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+| upwelling transmittance              | `transmittance` | day of the year (`DOY`)                 | `Sw_down`: total incident sunlight                                                 |
+|                                      |                 |                                         |                                                                                    |
+|                                      |                 | zenith angle (`zangle`)                 |                                                                                    |
++--------------------------------------+-----------------+-----------------------------------------+------------------------------------------------------------------------------------+
+
+## 3.2 Photosynthesis
+
++---------------------------------------------------+------------------------+--------------------------------------------------------------------------------------+
+| Model                                             | Function (Predict/Fit) | Variable(s)                                                                          |
++===================================================+========================+======================================================================================+
+| Michaelis-Menten model                            | `photo.michment`       | `PAR`: photosynthetically active radiation                                           |
+|                                                   |                        |                                                                                      |
+|                                                   | `photo.michment.fit`   |                                                                                      |
++---------------------------------------------------+------------------------+--------------------------------------------------------------------------------------+
+| Landsberg model                                   | `photo.landsberg`      | `PAR`: photosynthetically active radiation                                           |
+|                                                   |                        |                                                                                      |
+|                                                   | `photo.landsberg.fit`  |                                                                                      |
++---------------------------------------------------+------------------------+--------------------------------------------------------------------------------------+
+| Farquhar model                                    | `photo.farquhar`       | `ci`: the intercellular concentration of carbon dioxide                              |
++---------------------------------------------------+------------------------+--------------------------------------------------------------------------------------+
+| Ball-Berry model (calculate stomatal conductance) | `photo.ballberry`      | `An`: photosynthesis rate                                                            |
+|                                                   |                        |                                                                                      |
+|                                                   |                        | `cs`: for concentration carbon dioxide of leaf surface                               |
+|                                                   |                        |                                                                                      |
+|                                                   |                        | `hs`: relative humidity at the leaf surface                                          |
+|                                                   |                        |                                                                                      |
+|                                                   |                        | `VPD`: (optional) vapor pressure deficit (can be calculated by function `vpdeficit`) |
++---------------------------------------------------+------------------------+--------------------------------------------------------------------------------------+
+
+## 3.3 Respiration
+
+To fit respiration model and estimate Q10 value, you need to provide measured respiration values and sets of explanatory variables such as temperature. Function `respir.fit` can be used to fit various respiration models specified by option `method`.
+
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| method          | equation                                                                                 | variable(s)                             |
++=================+==========================================================================================+=========================================+
+| `t1.log-linear` | `R = a0 * exp(a1 * ta)`                                                                  | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `t2.linear`     | `R = a0 + a1 * ta`                                                                       | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `t3.polynomial` | `R = a0 + a1 * ta + a2 * ta^2 + ...`                                                     | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `t4.arrhenius`  | `R = R10 * exp(E0 * (1/56.02 - 1/(T + 273.15 - 227.13)))`                                | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `t5.logistic`   | `R = alpha / (1 + exp(beta0 - beta1 * ta))`                                              | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `t6.gamma`      | `R = ta ^ alpha * exp(beta0 + beta1 * ta)`                                               | `ta`: temperature                       |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `tm1.DeForest`  | `R = R10 * exp(beta * ta) + a * m + b`                                                   | `ta`: temperature                       |
+|                 |                                                                                          |                                         |
+|                 |                                                                                          | `m`: soil moisture                      |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `tm2.Xu`        | `R = alpha * exp(beta0 * T) * beta1 * (m - beta2)^2`                                     | `ta`: temperature                       |
+|                 |                                                                                          |                                         |
+|                 |                                                                                          | `m`: soil moisture                      |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `tm3.Concilio`  | `R = R0 * exp(beta0 * ta) * exp(beta1 * m) * ta * m`                                     | `ta`: temperature                       |
+|                 |                                                                                          |                                         |
+|                 |                                                                                          | `m`: soil moisture                      |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `tmd.Xu`        | `R = alpha * exp(beta0 * ta) * beta1 * (m - beta2)^2 + beta3 * (doy - beta4)^2`          | `ta`: temperature                       |
+|                 |                                                                                          |                                         |
+|                 |                                                                                          | `m`: soil moisture                      |
+|                 |                                                                                          |                                         |
+|                 |                                                                                          | `doy`: day of the year (function `DOY`) |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+| `d.fourier`     | `kappa0 + kappa1 * sin(doy * 2*pi/365 + fai1) + kappa2 * sin(2 * doy * 2*pi/365 + fai2)` | `doy`: day of the year (function `DOY`) |
++-----------------+------------------------------------------------------------------------------------------+-----------------------------------------+
+
+## 3.4 Evapotranspiration
+
+Evapotranspiration (ET) is calculated in two steps in most of cases. You will first calculate potential evapotranspiration (PET) based on PET models and then derive ET based on PET values. Available PET models include:
+
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| PET model               | Function                  | Depend variables                              | Measured variables                                                                                                   |
++=========================+===========================+===============================================+======================================================================================================================+
+| Penman-Monteith model   | `m1.PET.FAO`              | vapor pressure deficient (`vpd`)              | `ta`: mean temperature                                                                                               |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           | daily net radiation (`rn`)                    | `u2`: wind speed at 2m (can be calculated from wind speed at other heights using function `windspeed`)               |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `G`: soil heat flux (function `heatflux`)                                                                            |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `EL`: elevation                                                                                                      |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Thornthwaite model      | `m2.PET.Thornthwaite`     | None                                          | `month_ta`: monthly temperature in a year                                                                            |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `Ld`: daytime length (alternatively calculated by `sunRS` or `dh`)                                                   |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Hamon's model           | `m3.PET.Hamon`            | None                                          | `ta`: mean temperature                                                                                               |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `Ld`: daytime length (alternatively calculated by `sunRS` or `dh`)                                                   |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Blaney-Criddle model    | `m4.PET.BlaneyCriddle`    | None                                          | `ta`: mean temperature                                                                                               |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `dhour`: the total daytime hours for the period used (alternatively calculated by `sunRS` or `dh` for multiple days) |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Turc model              | `m5.PET.Turc`             | None                                          | `ta`: daily mean temperature                                                                                         |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `h`: relative humidity                                                                                               |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `Rs`: daily solar radiation (alternatively calculated by the function `rs`)                                          |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Priestley-Taylor model  | `m6.PET.PriestleyTaylor`  | daily net solar radiation (`rn`)              | `ta`: daily mean temperature                                                                                         |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `EL`: elevation                                                                                                      |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `G`: soil heat flux (function `heatflux`)                                                                            |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Makkink model           | `m7.PET.Makkink`          |                                               | `ta`: daily mean temperature                                                                                         |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `EL`: elevation                                                                                                      |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `Rs`: daily solar radiation (alternatively calculated by the function `rs`)                                          |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| Hargreaves-Samani model | `m8.PET.HargreavesSamani` | daily extraterrestrial solar radiation (`ra`) | `ta`: daily mean temperature                                                                                         |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `tmax`: daily maximum temperature                                                                                    |
+|                         |                           |                                               |                                                                                                                      |
+|                         |                           |                                               | `tmin`: daily minimum temperature                                                                                    |
++-------------------------+---------------------------+-----------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+
+After getting PET values, you can calculate ET based on empirical ET models. For some models, however, PET values is not required.
+
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Function      | Variables                                                                                                                                                                                                                                           |
++===============+=====================================================================================================================================================================================================================================================+
+| `m1.ET.Sun`   | `PET`: monthly (NOT daily) PET estimated by FAO method (`m1.PET.FAO`)                                                                                                                                                                               |
+|               |                                                                                                                                                                                                                                                     |
+|               | `LAI`: leaf area index                                                                                                                                                                                                                              |
+|               |                                                                                                                                                                                                                                                     |
+|               | `P`: monthly precipitation                                                                                                                                                                                                                          |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| `m2.ET.Sun`   | `PET`: monthly (NOT daily) PET estimated by Homon's method (`m3.PET.FAO`)                                                                                                                                                                           |
+|               |                                                                                                                                                                                                                                                     |
+|               | `LAI`: leaf area index                                                                                                                                                                                                                              |
+|               |                                                                                                                                                                                                                                                     |
+|               | `P`: monthly precipitation                                                                                                                                                                                                                          |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| `m3.ET.Fang`  | `PET`: monthly (NOT daily) PET estimated by Homon's method (`m3.PET.FAO`)                                                                                                                                                                           |
+|               |                                                                                                                                                                                                                                                     |
+|               | `VPD`: vapor pressure deficient (function `vpdeficit`)                                                                                                                                                                                              |
+|               |                                                                                                                                                                                                                                                     |
+|               | `Rn`: monthly (NOT daily) net solar radiation (function `rn`)                                                                                                                                                                                       |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| `m4.ET.type1` | `LAI`, `Rn`, `P` for shurbland and cropland                                                                                                                                                                                                         |
+|               |                                                                                                                                                                                                                                                     |
+|               | `SWC`, `Rn`, `P` for grassland                                                                                                                                                                                                                      |
+|               |                                                                                                                                                                                                                                                     |
+|               | `Rn`, `PET` for deciduous forest                                                                                                                                                                                                                    |
+|               |                                                                                                                                                                                                                                                     |
+|               | `Rn`, `Ta` for evergreen needle leaf forest                                                                                                                                                                                                         |
+|               |                                                                                                                                                                                                                                                     |
+|               | `SWC`, `Ta`, Rn for broad leaf forest                                                                                                                                                                                                               |
+|               |                                                                                                                                                                                                                                                     |
+|               | `PET` for mixed forest                                                                                                                                                                                                                              |
+|               |                                                                                                                                                                                                                                                     |
+|               | `LAI`, `Rn` for savanna                                                                                                                                                                                                                             |
+|               |                                                                                                                                                                                                                                                     |
+|               | where `LAI` for leaf are index, `Rn` for monthly solar radiation (function `rn`), `P` for monthly precipitation, `SWC` for soil water content, `PET` for PET value estimated by Hamon's method (function `m3.PET.Hamon`), `Ta` for mean temperature |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| `m5.ET.type2` | `PET`, `P`, `LAI` for shurbland, cropland, grassland, evergreen needle leaf forest, and savannas                                                                                                                                                    |
+|               |                                                                                                                                                                                                                                                     |
+|               | `PET`, `LAI` for deciduous forest and evergreen broad leaf forest                                                                                                                                                                                   |
+|               |                                                                                                                                                                                                                                                     |
+|               | `PET` for mixed forest                                                                                                                                                                                                                              |
+|               |                                                                                                                                                                                                                                                     |
+|               | where `LAI` for leaf are index, `P` for monthly precipitation, and `PET` for PET value estimated by Hamon's method (function `m3.PET.Hamon`)                                                                                                        |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| `m6.ET.Zhang` | `PET`: monthly (NOT daily) PET estimated by Priestley-Taylor method (`m6.PET.PriestleyTaylor`)                                                                                                                                                      |
+|               |                                                                                                                                                                                                                                                     |
+|               | `P`: monthly precipitation                                                                                                                                                                                                                          |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+## 3.5 Global Warming Potential
+
+For global warming potential (GWP) caused by greenhouse gases (GHGs), use function `AGWP.CO2`, `AGWP.CH4`, `AGWP.N2O` to calculate absolute global warming potential (AGWP) for carbon dioxide, methane, and nitrogen oxide. No measured variables are required.
+
+For GWP caused by albedo change, please use the function `GWP.albedo`. Required variables are: `Sw_up` (reflected light), `Sw_down` (total incident sunlight), `alpha_s_REF` (albedo of the reference site). Variable `Ta` can be calculated by the function `transmittance`.
+
+# Reference
+
+Chen, J. (2021). Biophysical Models and Applications in Ecosystem Analysis. Higher Education Press.
